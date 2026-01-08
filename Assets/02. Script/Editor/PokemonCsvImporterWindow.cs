@@ -1,52 +1,76 @@
-using System;
+ï»¿using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.IO;
+using System.Text.RegularExpressions;
 using UnityEditor;
 using UnityEngine;
 
-//CSV¸¦ ÀĞ¾î¼­ PokemonDatabase.asset(ScriptableObject)¸¦ »ı¼º/°»½ÅÇÏ´Â ¿¡µğÅÍ ÀÓÆ÷ÅÍ Åø.
+/*
+CSV(TextAsset) -> PokemonDatabase.asset(ScriptableObject) ìƒì„±/ê°±ì‹ .
+
+í•µì‹¬ ê·œì¹™
+- CSVì˜ No í‘œê¸°ëŠ” "#0001" ê°™ì€ "í‘œì‹œìš©" í¬ë§·ì„ ìœ ì§€í•œë‹¤.
+- ëŸ°íƒ€ì„/ë°ì´í„°ì—ëŠ” Noë¥¼ int(1,2,3...)ë¡œ ì €ì¥í•œë‹¤. (#, 0-paddingì€ íŒŒì‹± ì‹œ ì œê±°)
+
+EvolutionCode ê·œì¹™
+- > 0 : ë ˆë²¨ ì§„í™”(ì˜ˆ: 16, 32)
+- = 0 : ìµœì¢…ì§„í™”(ë ˆë²¨ ì§„í™” ì—†ìŒ)
+- < 0 : íŠ¹ìˆ˜ ë³€í˜• ì½”ë“œ(ë©”ê°€/ê±°ë‹¤ì´ë§¥ìŠ¤/í¼ì²´ì¸ì§€ ë“±)
+*/
 public class PokemonCsvImporterWindow : EditorWindow
 {
-    [SerializeField] private TextAsset csvFile; //ÀÓÆ÷Æ®ÇÒ CSV(TextAsset)
-    [SerializeField] private string outputAssetPath = "Assets/03.Data/Pokedex/PokemonDatabase.asset"; //»ı¼º/°»½ÅµÉ ¿¡¼Â °æ·Î
+    [SerializeField] private TextAsset csvFile; //í”„ë¡œì íŠ¸ì˜ CSV(TextAsset)
+    [SerializeField] private string outputAssetPath = "Assets/03.Data/Pokedex/PokemonDatabase.asset"; //ìƒì„±/ê°±ì‹ ë  ì—ì…‹ ê²½ë¡œ
 
+    private static readonly Regex FirstIntRegex = new Regex(@"-?\d+", RegexOptions.Compiled); //ë¬¸ìì—´ì—ì„œ ì²« ìˆ«ì ë¸”ë¡ ì¶”ì¶œìš©
+
+    //ì—ë””í„° ìƒë‹¨ ë©”ë‰´ì—ì„œ ì´ ì°½ì„ ì—´ ìˆ˜ ìˆê²Œ ë©”ë‰´ í•­ëª© ì¶”ê°€
     [MenuItem("Tools/Pokedex/CSV Importer")]
     public static void Open()
     {
+        //ì°½ì„ ì—´ê±°ë‚˜(ì—†ìœ¼ë©´ ìƒì„±) í¬ì»¤ìŠ¤
         GetWindow<PokemonCsvImporterWindow>("Pokemon CSV Importer");
     }
 
     private void OnGUI()
     {
-        //ÀÔ·Â UI
+        //ì°½ ì œëª©/êµ¬ë¶„
+        GUILayout.Label("CSV -> PokemonDatabase.asset", EditorStyles.boldLabel);
+        GUILayout.Space(6);
+
+        //CSV(TextAsset) ì„ íƒ í•„ë“œ(ë“œë˜ê·¸ ì•¤ ë“œë¡­)
         csvFile = (TextAsset)EditorGUILayout.ObjectField("CSV File", csvFile, typeof(TextAsset), false);
+
+        //ì¶œë ¥ ì—ì…‹ ê²½ë¡œ(í”„ë¡œì íŠ¸ êµ¬ì¡°ì— ë§ê²Œ ìˆ˜ì • ê°€ëŠ¥)
         outputAssetPath = EditorGUILayout.TextField("Output Asset Path", outputAssetPath);
 
         GUILayout.Space(8);
 
-        //½ÇÇà ¹öÆ°
+        //ì„í¬íŠ¸ ì‹¤í–‰ ë²„íŠ¼(ì‚¬ìš©ì í´ë¦­ìœ¼ë¡œë§Œ ë°ì´í„° ê°±ì‹ )
         if (GUILayout.Button("Import CSV -> PokemonDatabase.asset", GUILayout.Height(28)))
         {
+            //CSVê°€ ë¹„ì–´ìˆìœ¼ë©´ ì¤‘ë‹¨
             if (csvFile == null)
             {
-                Debug.LogError("CSV FileÀÌ ºñ¾îÀÖ¾î ÀÓÆ÷Æ®ÇÒ ¼ö ¾ø¾î.");
+                Debug.LogError("CSV Fileì´ ë¹„ì–´ìˆì–´ ì„í¬íŠ¸í•  ìˆ˜ ì—†ì–´.");
+                return;
             }
-            else
-            {
-                Import(csvFile.text, outputAssetPath);
-            }
+
+            //íŒŒì‹± -> ì—ì…‹ ìƒì„±/ê°±ì‹  -> ì €ì¥
+            Import(csvFile.text, outputAssetPath);
         }
     }
 
     private void Import(string csvText, string assetPath)
     {
-        //CSV ÆÄ½Ì
+        //1) CSV íŒŒì‹±
         List<PokemonEntry> parsed = ParseCsv(csvText);
 
-        //¿¡¼Â Æú´õ »ı¼º º¸Àå
+        //2) ì¶œë ¥ í´ë”ê°€ ì—†ìœ¼ë©´ ìƒì„±(Assets ê²½ë¡œ ê¸°ì¤€)
         EnsureFolderExists(Path.GetDirectoryName(assetPath));
 
-        //±âÁ¸ ¿¡¼Â ·Îµå ¶Ç´Â »ı¼º
+        //3) ê¸°ì¡´ ì—ì…‹ì´ ìˆìœ¼ë©´ ë¡œë“œ, ì—†ìœ¼ë©´ ìƒì„±
         PokemonDatabaseSO db = AssetDatabase.LoadAssetAtPath<PokemonDatabaseSO>(assetPath);
         if (db == null)
         {
@@ -54,32 +78,36 @@ public class PokemonCsvImporterWindow : EditorWindow
             AssetDatabase.CreateAsset(db, assetPath);
         }
 
-        //µ¥ÀÌÅÍ ¹İ¿µ
+        //4) ë°ì´í„° ë°˜ì˜
         db.SetEntries(parsed);
         EditorUtility.SetDirty(db);
 
-        //ÀúÀå/°»½Å
+        //5) ì €ì¥/ê°±ì‹ 
         AssetDatabase.SaveAssets();
         AssetDatabase.Refresh();
 
-        Debug.Log($"ÀÓÆ÷Æ® ¿Ï·á: {parsed.Count}°³ Ç×¸ñ -> {assetPath}");
+        //6) ê²°ê³¼ í™•ì¸ ë¡œê·¸
+        Debug.Log($"ì„í¬íŠ¸ ì™„ë£Œ: {assetPath} / Entries={parsed.Count}");
+        if (parsed.Count > 0)
+        {
+            Debug.Log($"ìƒ˜í”Œ: No(int)={parsed[0].No}, DisplayNo={parsed[0].DisplayNo}, Name={parsed[0].Name}, EvolutionCode={parsed[0].EvolutionCode}");
+        }
     }
 
     private List<PokemonEntry> ParseCsv(string text)
     {
-        //°³Çà Á¤¸®
-        string normalized = text.Replace("\r\n", "\n").Replace("\r", "\n");
+        //ì¤„ë°”ê¿ˆ í†µì¼(ìœˆë„ìš°/ë§¥ í˜¼ìš© ë°©ì§€)
+        string normalized = NormalizeNewLines(text);
         string[] lines = normalized.Split('\n');
 
         List<PokemonEntry> result = new List<PokemonEntry>();
 
-        //ºó ÆÄÀÏ ¹æ¾î
         if (lines.Length == 0)
         {
             return result;
         }
 
-        //Çì´õ È®ÀÎ ÈÄ ½ÃÀÛ ¶óÀÎ °áÁ¤
+        //í—¤ë”ê°€ ìˆìœ¼ë©´ 1ì¤„ ê±´ë„ˆë›°ê¸°
         int startIndex = 0;
         if (IsHeaderLine(lines[0]))
         {
@@ -94,22 +122,26 @@ public class PokemonCsvImporterWindow : EditorWindow
                 continue;
             }
 
-            //CSV´Â ½°Ç¥ ±âÁØ, TSV´Â ÅÇ ±âÁØÀÎµ¥, µÑ ´Ù ´ëÀÀ
+            //í˜„ì¬ CSVëŠ” ë”°ì˜´í‘œ/ì½¤ë§ˆ-ë‚´ì¥ í•„ë“œê°€ ì—†ì–´ì„œ Split(',')ë¡œ ì¶©ë¶„
+            //í•„ìš”í•´ì§€ë©´ CSV íŒŒì„œë¡œ êµì²´
             string[] cols = SplitCsvOrTsvLine(line);
 
-            //ÃÖ¼Ò ÄÃ·³¼ö ¹æ¾î(ÇÊ¿äÇÑ °Í¸¸ÀÌ¶óµµ)
+            //ìµœì†Œ ì»¬ëŸ¼(ë²ˆí˜¸/ì´ë¦„/íƒ€ì…1/íƒ€ì…2)ì€ í•„ìš”
             if (cols.Length < 4)
             {
                 continue;
             }
 
-            int no = ToIntSafe(Get(cols, 0));
+            //"#0001" -> 1ë¡œ ë³€í™˜í•˜ì—¬ ì €ì¥
+            int no = ToDexNo(Get(cols, 0));
             string name = Get(cols, 1);
+
             string type1 = Get(cols, 2);
             string type2 = Get(cols, 3);
 
-            //³ª¸ÓÁö´Â ¾øÀ¸¸é ±âº»°ª
+            //ë‚˜ë¨¸ì§€ëŠ” ì—†ìœ¼ë©´ ê¸°ë³¸ê°’(ë¹ˆ ë¬¸ìì—´/0)
             string abilities = Get(cols, 4);
+
             int hp = ToIntSafe(Get(cols, 5));
             int atk = ToIntSafe(Get(cols, 6));
             int def = ToIntSafe(Get(cols, 7));
@@ -117,58 +149,140 @@ public class PokemonCsvImporterWindow : EditorWindow
             int spDef = ToIntSafe(Get(cols, 9));
             int speed = ToIntSafe(Get(cols, 10));
             int value = ToIntSafe(Get(cols, 11));
-            int nextEvoLevel = ToIntSafe(Get(cols, 12));
 
-            //´ÜÀÏÅ¸ÀÔÀÌ¸é type2´Â ºóÄ­ À¯Áö(ÀÔ·Â ±×´ë·Î)
+            //EvolutionCodeëŠ” ìŒìˆ˜ ê·œì¹™ì„ ì“°ë¯€ë¡œ ì ˆëŒ€ 0ìœ¼ë¡œ ëˆŒëŸ¬ë²„ë¦¬ì§€ ì•ŠëŠ”ë‹¤
+            int evolutionCode = ToIntSafe(Get(cols, 12));
+
+            //ë‹¨ì¼ íƒ€ì…ì´ë©´ ë¹ˆì¹¸ ìœ ì§€(ì…ë ¥ ê·¸ëŒ€ë¡œ)
             if (type2 == null)
             {
                 type2 = "";
             }
 
-            result.Add(new PokemonEntry(no, name, type1, type2, abilities, hp, atk, def, spAtk, spDef, speed, value, nextEvoLevel));
+            //No/Name ë‘˜ ë‹¤ ë¹„ë©´ ê¹¨ì§„ í–‰ìœ¼ë¡œ ë³´ê³  ìŠ¤í‚µ
+            if (no == 0 && string.IsNullOrWhiteSpace(name))
+            {
+                continue;
+            }
+
+            result.Add(new PokemonEntry(no, name, type1, type2, abilities, hp, atk, def, spAtk, spDef, speed, value, evolutionCode));
         }
 
         return result;
     }
 
+    private int ToDexNo(string s)
+    {
+        //"#0001" ê°™ì€ í‘œì‹œ í¬ë§·ì„ í¬í•¨í•´ ì–´ë–¤ ì…ë ¥ì´ ì™€ë„ 'ìˆ«ìë§Œ' ëª¨ì•„ì„œ ë„ê°ë²ˆí˜¸ intë¡œ ë§Œë“ ë‹¤.
+        //ì „ê° ìˆ«ì(ï¼ï¼‘ï¼’ï¼“...)ë„ char.GetNumericValueë¡œ ì²˜ë¦¬ ê°€ëŠ¥
+        string t = CleanToken(s);
+
+        int value = 0;
+        bool hasDigit = false;
+
+        for (int i = 0; i < t.Length; i++)
+        {
+            double n = char.GetNumericValue(t[i]);
+            if (n < 0 || n > 9)
+            {
+                continue;
+            }
+
+            value = (value * 10) + (int)n;
+            hasDigit = true;
+        }
+
+        return hasDigit ? value : 0;
+    }
+
+    private string NormalizeNewLines(string text)
+    {
+        if (text == null)
+        {
+            return "";
+        }
+
+        return text.Replace("\r\n", "\n").Replace("\r", "\n");
+    }
+
     private bool IsHeaderLine(string firstLine)
     {
-        //No, Name, Type1 °°Àº ±ÛÀÚ°¡ ÀÖÀ¸¸é Çì´õ·Î Ãë±Ş
-        string lower = firstLine.ToLowerInvariant();
-        if (lower.Contains("no") && lower.Contains("name"))
-        {
-            return true;
-        }
-        return false;
+        //BOM/ì œë¡œí­ ë¬¸ì ì œê±° í›„ ë¹„êµ(í—¤ë” ê°ì§€ ì•ˆì •í™”)
+        string cleaned = CleanToken(firstLine);
+        string lower = cleaned.ToLowerInvariant();
+
+        //CSV í—¤ë”: No,Name,Type1...
+        return lower.Contains("no") && lower.Contains("name");
     }
 
     private string[] SplitCsvOrTsvLine(string line)
     {
-        //ÅÇÀÌ ÀÖÀ¸¸é TSV ¿ì¼±
+        //TSVë„ ìµœì†Œ ëŒ€ì‘
         if (line.Contains("\t"))
         {
             return line.Split('\t');
         }
 
-        //±âº»Àº CSV(´Ü¼ø split, ÄõÆ® º¹ÀâÄÉÀÌ½º´Â ÀÏ´Ü Á¦¿Ü)
         return line.Split(',');
     }
 
     private string Get(string[] cols, int index)
     {
+        if (cols == null)
+        {
+            return "";
+        }
+
         if (index < 0 || index >= cols.Length)
         {
             return "";
         }
-        return cols[index].Trim();
+
+        //BOM/ì œë¡œí­ ë¬¸ì/ì–‘ë ê³µë°± ì •ë¦¬
+        return CleanToken(cols[index]);
+    }
+
+    private string CleanToken(string s)
+    {
+        if (s == null)
+        {
+            return "";
+        }
+
+        string t = s.Trim();
+
+        //UTF-8 BOM(ï»¿) / ì œë¡œí­ ë¬¸ì ì œê±°
+        t = t.Trim('\uFEFF', '\u200B', '\u200C', '\u200D');
+
+        return t.Trim();
     }
 
     private int ToIntSafe(string s)
     {
-        if (int.TryParse(s, out int v))
+        //"", " 32 ", "-101" ê°™ì€ ì¼€ì´ìŠ¤ë¥¼ ì•ˆì „í•˜ê²Œ intë¡œ íŒŒì‹±
+        string t = CleanToken(s);
+        if (string.IsNullOrWhiteSpace(t))
+        {
+            return 0;
+        }
+
+        //CSV í‘œì‹œìš© "#" ì œê±°(No ì»¬ëŸ¼ ì™¸ì— ë¶™ì–´ë„ ì•ˆì „í•˜ê²Œ ì œê±°)
+        if (t.StartsWith("#", StringComparison.Ordinal))
+        {
+            t = t.Substring(1);
+        }
+
+        if (int.TryParse(t, NumberStyles.Integer, CultureInfo.InvariantCulture, out int v))
         {
             return v;
         }
+
+        Match m = FirstIntRegex.Match(t);
+        if (m.Success && int.TryParse(m.Value, NumberStyles.Integer, CultureInfo.InvariantCulture, out v))
+        {
+            return v;
+        }
+
         return 0;
     }
 
@@ -179,8 +293,8 @@ public class PokemonCsvImporterWindow : EditorWindow
             return;
         }
 
-        //Assets·Î ½ÃÀÛÇÏÁö ¾ÊÀ¸¸é ½ºÅµ
-        if (!folderPath.StartsWith("Assets"))
+        //Assets ê²½ë¡œê°€ ì•„ë‹ˆë©´ í´ë” ìƒì„±ì€ í•˜ì§€ ì•ŠìŒ
+        if (!folderPath.StartsWith("Assets", StringComparison.Ordinal))
         {
             return;
         }
@@ -190,14 +304,19 @@ public class PokemonCsvImporterWindow : EditorWindow
             return;
         }
 
-        string parent = Path.GetDirectoryName(folderPath);
-        string name = Path.GetFileName(folderPath);
+        //"Assets/A/B/C" í˜•íƒœë¥¼ ë‹¨ê³„ì ìœ¼ë¡œ ìƒì„±
+        string[] parts = folderPath.Split('/');
+        string current = parts[0];
 
-        if (!AssetDatabase.IsValidFolder(parent))
+        for (int i = 1; i < parts.Length; i++)
         {
-            EnsureFolderExists(parent);
-        }
+            string next = $"{current}/{parts[i]}";
+            if (!AssetDatabase.IsValidFolder(next))
+            {
+                AssetDatabase.CreateFolder(current, parts[i]);
+            }
 
-        AssetDatabase.CreateFolder(parent, name);
+            current = next;
+        }
     }
 }
