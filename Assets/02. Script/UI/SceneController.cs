@@ -3,11 +3,9 @@ using System.Collections;
 using System.Reflection;
 using UnityEngine;
 
-/// <summary>
-/// Handles loading panel visibility (no progress bar).
-/// - Shows "로딩중..." text while waiting.
-/// - Delegates actual scene loading to SceneLoader.
-/// </summary>
+// Handles loading panel visibility (no progress bar).
+// - Shows "로딩중..." text while waiting.
+// - Delegates actual scene loading to SceneLoader.
 public class SceneController : MonoBehaviour
 {
     public static SceneController Instance { get; private set; }
