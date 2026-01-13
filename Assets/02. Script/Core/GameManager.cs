@@ -1,254 +1,140 @@
+﻿using System;
 using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.SceneManagement;
+// 전반적인 게임흐름을 관리하는 매니저입니다
 
-/*
-GameManager는게임전역상태와부트플로우를관리하는MonoBehaviour컴포넌트다.
--부트에서데이터초기화를시도하고부트화면을최소시간표시한다.
--데이터에셋이없으면초기화를스킵하고플로우는계속진행한다.
--씬전환직전에로딩UI를먼저표시해전환중로딩화면이반드시보이도록한다.
--외부에서LoadLobby/LoadGame을호출해씬전환을요청할수있다.
--외부에서Pokedex로도감서비스에접근할수있다.
+/***중요*** [UI 애니메이션 관련]
+ 
+ 게임 일시정지시 timeScale이 0으로 설정하여 관리합니다
+ 게임이 정지되었을때 실행되는 UI의 애니메이션은 멈추면 안되기때문에
+ 해당 UI의 animator컴포넌트 inspector창에서 Update Mode를 [Normal] -> [Unscaled Time]으로 변경해주세요
+ UI만 해당하는 사항이며 다른 오브젝트들은 따로 설정하실 필요 없습니다
+
 */
-[DefaultExecutionOrder(-1000)]
-public class GameManager : MonoBehaviour
+
+public class GameManager : Singleton<GameManager>
 {
-    public static GameManager Instance { get; private set; }//싱글톤
 
-    [Header("Scenes")]
-    [SerializeField] private string bootSceneName = "01. BootScene";//부트씬이름
-    [SerializeField] private string lobbySceneName = "02. LobbyScene";//로비씬이름
-    [SerializeField] private string gameSceneName = "03. GameScene";//게임씬이름
+    public event Action OnGameStart;  // 게임시작시 호출 할 함수
+    public event Action OnGameOver;   // 게임오버시 호출 할 함수
+    public event Action OnGameClear;  // 스테이지 클리어시 호출 할 함수
+    public event Action OnGamePause;  // 게임일시정지시 호출 할 함수
+    public event Action OnGameResume; // 게임재개시 호출 할 함수
+    public event Action OnLevelUp;    // 레벨업시 호출 할 함수
 
-    [Header("BootFlow")]
-    [SerializeField] private bool autoEnterLobbyFromBoot = true;//부트자동진입
-    [SerializeField] private float bootMinVisibleSeconds = 3f;//부트최소표시시간
-    [SerializeField] private float bootExtraRandomSeconds = 2f;//부트추가랜덤(0~N)
-    [SerializeField] private bool enableDebug = true;//디버그로그토글
+    public float gameGold { get; private set; }
+    public bool isPlay { get; private set; } // 게임이 진행중인지 확인 변수
 
     [Header("Data")]
-    [SerializeField] private PokemonDatabaseSO pokemonDatabase;//도감DB
+    [SerializeField] private PokemonDatabaseSO pokemonDatabase;
 
     [Header("Managers")]
-    [SerializeField] private SceneLoader sceneLoader;//씬로더
-    [SerializeField] private PokedexService pokedexService;//도감서비스
+    [SerializeField] private SceneLoader sceneLoader;
+    [SerializeField] private PokedexService pokedexService;
 
-    public SceneLoader SceneLoader => sceneLoader;//외부접근
-    public PokedexService Pokedex => pokedexService;//외부접근
+    public SceneLoader SceneLoader => sceneLoader != null ? sceneLoader : SceneLoader.Instance;
+    public PokedexService Pokedex => pokedexService;
 
-    private bool isBootstrapped;//부트중복방지
-    private bool isTransitioning;//전환중중복방지
-
-    private void Awake()
+    protected override void Init()
     {
-        if (Instance != null && Instance != this)
-        {
-            Destroy(gameObject);
-            return;
-        }
-
-        Instance = this;
-        DontDestroyOnLoad(gameObject);
-
-        EnsureCoreComponents();
-        Dbg("//GameManager Awake");
+        base.Init();
+        isPlay = false;
+        gameGold = 1000f;
     }
 
-    private void Start()
+    private IEnumerator Start()
     {
-        if (isBootstrapped)
-        {
-            return;
-        }
-
-        isBootstrapped = true;
-        StartCoroutine(BootstrapRoutine());
+        yield return null;
+        EnsureSceneLoaderReady();
+        EnsurePokedexReady();
     }
 
-    //외부호출용
-    public void LoadLobby()
+    private void EnsureSceneLoaderReady()
     {
-        if (isTransitioning)
-        {
-            return;
-        }
+        if (sceneLoader != null) return;
 
-        StartCoroutine(LoadSceneRoutine(lobbySceneName));
+        sceneLoader = SceneLoader.Instance;
+        if (sceneLoader != null) return;
+
+        sceneLoader = FindObjectOfType<SceneLoader>(true);
     }
 
-    //외부호출용
-    public void LoadGame()
+    private void EnsurePokedexReady()
     {
-        if (isTransitioning)
+        if (pokedexService == null)
         {
-            return;
-        }
-
-        StartCoroutine(LoadSceneRoutine(gameSceneName));
-    }
-
-    private void EnsureCoreComponents()
-    {
-        if (sceneLoader == null)
-        {
-            sceneLoader = GetComponent<SceneLoader>();
-        }
-
-        if (sceneLoader == null)
-        {
-            sceneLoader = gameObject.AddComponent<SceneLoader>();
+            pokedexService = FindObjectOfType<PokedexService>(true);
         }
 
         if (pokedexService == null)
         {
-            pokedexService = GetComponent<PokedexService>();
+            var go = new GameObject("PokedexService");
+            pokedexService = go.AddComponent<PokedexService>();
+            DontDestroyOnLoad(go);
         }
-
-        if (pokedexService == null)
-        {
-            pokedexService = gameObject.AddComponent<PokedexService>();
-        }
-    }
-
-    private IEnumerator BootstrapRoutine()
-    {
-        Scene active = SceneManager.GetActiveScene();
-        if (!active.IsValid() || active.name != bootSceneName)
-        {
-            yield break;
-        }
-
-        Dbg($"//Bootstrap begin scene={active.name}");
-
-        if (UIController.Instance != null)
-        {
-            UIController.Instance.ShowBoot();
-        }
-
-        float startedAt = Time.unscaledTime;
 
         if (pokemonDatabase == null)
         {
-            Dbg("//PokemonDatabaseSO missing,skip init");
-        }
-        else
-        {
-            if (pokedexService != null)
-            {
-                Dbg("//PokedexService Initialize");
-                pokedexService.Initialize(pokemonDatabase);
-            }
+            pokemonDatabase = Resources.Load<PokemonDatabaseSO>("PokemonDatabase");
         }
 
-        float minSeconds = bootMinVisibleSeconds;
-        if (bootExtraRandomSeconds > 0f)
+        if (pokemonDatabase == null)
         {
-            float add = Random.Range(0f, bootExtraRandomSeconds);
-            minSeconds += add;
-            Dbg($"//Boot extraRandom={add:0.000}");
-        }
-
-        float elapsed = Time.unscaledTime - startedAt;
-        float remain = minSeconds - elapsed;
-        Dbg($"//Boot wait remain={remain:0.000}");
-
-        if (remain > 0f)
-        {
-            yield return new WaitForSecondsRealtime(remain);
-        }
-
-        if (!autoEnterLobbyFromBoot)
-        {
-            Dbg("//AutoEnter disabled");
-            yield break;
-        }
-
-        yield return EnterLobbyFromBootRoutine();
-    }
-
-    private IEnumerator EnterLobbyFromBootRoutine()
-    {
-        if (isTransitioning)
-        {
-            yield break;
-        }
-
-        isTransitioning = true;
-
-        EnsureCoreComponents();
-        if (sceneLoader == null)
-        {
-            Debug.LogError("//SceneLoader missing");
-            isTransitioning = false;
-            yield break;
-        }
-
-        Dbg("//EnterLobby showLoading");
-        if (UIController.Instance != null)
-        {
-            UIController.Instance.ShowLoading();
-            yield return null;//로딩UI그릴프레임양보
-        }
-
-        Scene active = SceneManager.GetActiveScene();
-        Dbg($"//EnterLobby active={active.name}");
-
-        if (active.IsValid() && active.name == bootSceneName)
-        {
-            yield return sceneLoader.LoadSceneReplaceActiveAsync(lobbySceneName);
-        }
-        else
-        {
-            yield return sceneLoader.LoadSceneAsync(lobbySceneName);
-        }
-
-        isTransitioning = false;
-        Dbg("//EnterLobby done");
-    }
-
-    private IEnumerator LoadSceneRoutine(string sceneName)
-    {
-        EnsureCoreComponents();
-
-        if (sceneLoader == null)
-        {
-            Debug.LogError("//SceneLoader missing");
-            yield break;
-        }
-
-        if (sceneLoader.IsLoading)
-        {
-            yield break;
-        }
-
-        if (string.IsNullOrWhiteSpace(sceneName))
-        {
-            Debug.LogError("//SceneName empty");
-            yield break;
-        }
-
-        isTransitioning = true;
-
-        Dbg($"//LoadSceneRoutine showLoading name={sceneName}");
-        if (UIController.Instance != null)
-        {
-            UIController.Instance.ShowLoading();
-            yield return null;
-        }
-
-        yield return sceneLoader.LoadSceneAsync(sceneName);
-
-        isTransitioning = false;
-        Dbg($"//LoadSceneRoutine done name={sceneName}");
-    }
-
-    private void Dbg(string msg)
-    {
-        if (!enableDebug)
-        {
+            Debug.LogWarning("GameManager: PokemonDatabaseSO가 없습니다. (Inspector 연결 또는 Resources/PokemonDatabase.asset 필요)");
             return;
         }
 
-        Debug.Log(msg);
+        if (!pokedexService.IsInitialized)
+        {
+            pokedexService.Initialize(pokemonDatabase);
+        }
+    }
+
+    public void GameStart()
+    {
+        Time.timeScale = 1f;
+        isPlay = true;
+        OnGameStart?.Invoke();
+    }
+
+    public void GameOver()
+    {
+        Time.timeScale = 0f;
+        isPlay = false;
+        OnGameOver?.Invoke();
+    }
+
+    public void GameClear()
+    {
+        Time.timeScale = 0f;
+        isPlay = false;
+        OnGameClear?.Invoke();
+    }
+
+    public void GamePause()
+    {
+        Time.timeScale = 0f;
+        isPlay = false;
+        OnGamePause?.Invoke();
+    }
+
+    public void GameResume()
+    {
+        Time.timeScale = 1f;
+        isPlay = true;
+        OnGameResume?.Invoke();
+    }
+
+    public void LevelUp()
+    {
+        Time.timeScale = 0f;
+        isPlay = false;
+        OnLevelUp?.Invoke();
+    }
+
+    public void AddGold(float num)
+    {
+        gameGold += num;
     }
 }

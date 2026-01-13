@@ -3,37 +3,37 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
-PokemonTypeParser´ÂCore¿µ¿ª¿¡¼­»ç¿ëµÇ´Âclass´Ù.
--ÀÌ½ºÅ©¸³Æ®´ÂÇÁ·ÎÁ§Æ®¿¡¼­PokemonTypeParser¿ªÇÒÀ»ÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
--¿ÜºÎÈ£ÃâÁöÁ¡À»¸íÈ®È÷ÇÏ°íÁßº¹Ã³¸®¸¦¸·´Â´Ù.
+PokemonTypeParserëŠ”Coreì˜ì—­ì—ì„œì‚¬ìš©ë˜ëŠ”classë‹¤.
+-ì´ìŠ¤í¬ë¦½íŠ¸ëŠ”í”„ë¡œì íŠ¸ì—ì„œPokemonTypeParserì—­í• ì„í•œë‹¤.
+-ì»´í¬ë„ŒíŠ¸ì°¸ì¡°ëŠ”Awakeì—ì„œìºì‹±í•˜ê³ ,nullì„ê°€ë“œí•œë‹¤.
+-ì™¸ë¶€í˜¸ì¶œì§€ì ì„ëª…í™•íˆí•˜ê³ ì¤‘ë³µì²˜ë¦¬ë¥¼ë§‰ëŠ”ë‹¤.
 */
 public static class PokemonTypeParser
 {
-    //ÇÑ±ÛÅ¸ÀÔ->enum
+    //í•œê¸€íƒ€ì…->enum
     private static readonly Dictionary<string, PokemonType> typeMap = new Dictionary<string, PokemonType>()
     {
-        {"³ë¸»", PokemonType.Normal},
-        {"ºÒ²É", PokemonType.Fire},
-        {"¹°", PokemonType.Water},
-        {"Àü±â", PokemonType.Electric},
-        {"Ç®", PokemonType.Grass},
-        {"¾óÀ½", PokemonType.Ice},
-        {"°İÅõ", PokemonType.Fighting},
-        {"µ¶", PokemonType.Poison},
-        {"¶¥", PokemonType.Ground},
-        {"ºñÇà", PokemonType.Flying},
-        {"¿¡½ºÆÛ", PokemonType.Psychic},
-        {"¹ú·¹", PokemonType.Bug},
-        {"¹ÙÀ§", PokemonType.Rock},
-        {"°í½ºÆ®", PokemonType.Ghost},
-        {"µå·¡°ï", PokemonType.Dragon},
-        {"¾Ç", PokemonType.Dark},
-        {"°­Ã¶", PokemonType.Steel},
-        {"Æä¾î¸®", PokemonType.Fairy},
+        {"ë…¸ë§", PokemonType.Normal},
+        {"ë¶ˆê½ƒ", PokemonType.Fire},
+        {"ë¬¼", PokemonType.Water},
+        {"ì „ê¸°", PokemonType.Electric},
+        {"í’€", PokemonType.Grass},
+        {"ì–¼ìŒ", PokemonType.Ice},
+        {"ê²©íˆ¬", PokemonType.Fighting},
+        {"ë…", PokemonType.Poison},
+        {"ë•…", PokemonType.Ground},
+        {"ë¹„í–‰", PokemonType.Flying},
+        {"ì—ìŠ¤í¼", PokemonType.Psychic},
+        {"ë²Œë ˆ", PokemonType.Bug},
+        {"ë°”ìœ„", PokemonType.Rock},
+        {"ê³ ìŠ¤íŠ¸", PokemonType.Ghost},
+        {"ë“œë˜ê³¤", PokemonType.Dragon},
+        {"ì•…", PokemonType.Dark},
+        {"ê°•ì² ", PokemonType.Steel},
+        {"í˜ì–´ë¦¬", PokemonType.Fairy},
     };
 
-    //ºó°ª/¿ÀÅ¸´ÂNone
+    //ë¹ˆê°’/ì˜¤íƒ€ëŠ”None
     public static PokemonType ParseOrNone(string rawType)
     {
         if (string.IsNullOrWhiteSpace(rawType))

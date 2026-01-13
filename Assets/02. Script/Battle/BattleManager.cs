@@ -1,1 +1,17 @@
-using UnityEngine;  /* BattleManager는씬/오브젝트에붙는MonoBehaviour컴포넌트다. -게임흐름을중앙에서조율하고,다른시스템의진입점을제공한다. -전투에서필요한데이터를모으고,턴처리/기술실행흐름을구성한다. -컴포넌트참조는Awake에서캐싱하고,null을가드한다. */ public class BattleManager : MonoBehaviour {      void Start()     {      }       void Update()     {      } } 
+using UnityEngine;
+
+/// <summary>
+/// BattleManager is a scene-bound MonoBehaviour.
+/// - Owns battle flow orchestration (enter/exit, turn start/end, UI hooks).
+/// - Keep Update free of allocations; drive logic via explicit calls / coroutines.
+/// </summary>
+public sealed class BattleManager : MonoBehaviour
+{
+    private void Start()
+    {
+    }
+
+    private void Update()
+    {
+    }
+}

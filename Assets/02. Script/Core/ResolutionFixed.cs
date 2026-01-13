@@ -1,34 +1,34 @@
 using UnityEngine;
 
 /*
-ResolutionFixed´Â¾À/¿ÀºêÁ§Æ®¿¡ºÙ´ÂMonoBehaviourÄÄÆ÷³ÍÆ®´Ù.
--¿ÜºÎ¿¡¼­´ÂRefreshÀ»È£ÃâÇØÀÌ±â´ÉÀ»»ç¿ëÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
--Update¿¡¼­GCÀ¯¹ßÆĞÅÏÀ»ÇÇÇÑ´Ù.
+ResolutionFixedëŠ”ì”¬/ì˜¤ë¸Œì íŠ¸ì—ë¶™ëŠ”MonoBehaviourì»´í¬ë„ŒíŠ¸ë‹¤.
+-ì™¸ë¶€ì—ì„œëŠ”Refreshì„í˜¸ì¶œí•´ì´ê¸°ëŠ¥ì„ì‚¬ìš©í•œë‹¤.
+-ì»´í¬ë„ŒíŠ¸ì°¸ì¡°ëŠ”Awakeì—ì„œìºì‹±í•˜ê³ ,nullì„ê°€ë“œí•œë‹¤.
+-Updateì—ì„œGCìœ ë°œíŒ¨í„´ì„í”¼í•œë‹¤.
 */
 public class ResolutionFixed : MonoBehaviour
 {
     [Header("Target(16:9)")]
-    [SerializeField] private int targetWidth = 1920;//¸ñÇ¥ ³Êºñ
-    [SerializeField] private int targetHeight = 1080;//¸ñÇ¥ ³ôÀÌ
+    [SerializeField] private int targetWidth = 1920;//ëª©í‘œ ë„ˆë¹„
+    [SerializeField] private int targetHeight = 1080;//ëª©í‘œ ë†’ì´
 
     [Header("Apply(SetResolution)")]
-    [SerializeField] private bool applySetResolutionOnStart = true;//½ÃÀÛ ½Ã 1È¸ SetResolution ¿äÃ»
-    [SerializeField] private FullScreenMode fullScreenMode = FullScreenMode.FullScreenWindow;//PC¿¡¼­ ±ÇÀå
+    [SerializeField] private bool applySetResolutionOnStart = true;//ì‹œì‘ ì‹œ 1íšŒ SetResolution ìš”ì²­
+    [SerializeField] private FullScreenMode fullScreenMode = FullScreenMode.FullScreenWindow;//PCì—ì„œ ê¶Œì¥
 
     [Header("Camera")]
-    [SerializeField] private Camera targetCamera;//ºñÀ² º¸Á¤ Àû¿ë ´ë»ó(ºñ¿ì¸é Camera.main)
-    [SerializeField] private Color barColor = Color.black;//ºó ¿µ¿ª »ö
+    [SerializeField] private Camera targetCamera;//ë¹„ìœ¨ ë³´ì • ì ìš© ëŒ€ìƒ(ë¹„ìš°ë©´ Camera.main)
+    [SerializeField] private Color barColor = Color.black;//ë¹ˆ ì˜ì—­ ìƒ‰
 
-    private int lastWidth;//º¯°æ °¨Áö¿ë Ä³½Ã
-    private int lastHeight;//º¯°æ °¨Áö¿ë Ä³½Ã
-    private FullScreenMode lastMode;//º¯°æ °¨Áö¿ë Ä³½Ã
+    private int lastWidth;//ë³€ê²½ ê°ì§€ìš© ìºì‹œ
+    private int lastHeight;//ë³€ê²½ ê°ì§€ìš© ìºì‹œ
+    private FullScreenMode lastMode;//ë³€ê²½ ê°ì§€ìš© ìºì‹œ
 
-    private Camera backgroundCamera;//ºó ¿µ¿ªÀ» Ç×»ó °ËÁ¤À¸·Î Å¬¸®¾îÇÏ´Â Ä«¸Ş¶ó
+    private Camera backgroundCamera;//ë¹ˆ ì˜ì—­ì„ í•­ìƒ ê²€ì •ìœ¼ë¡œ í´ë¦¬ì–´í•˜ëŠ” ì¹´ë©”ë¼
 
     private void Awake()
     {
-        //Ä«¸Ş¶ó°¡ ÁöÁ¤µÇÁö ¾Ê¾ÒÀ¸¸é MainCamera¸¦ ÇÑ ¹ø¸¸ Ä³½ÌÇÑ´Ù
+        //ì¹´ë©”ë¼ê°€ ì§€ì •ë˜ì§€ ì•Šì•˜ìœ¼ë©´ MainCameraë¥¼ í•œ ë²ˆë§Œ ìºì‹±í•œë‹¤
         if (targetCamera == null)
         {
             targetCamera = Camera.main;
@@ -39,7 +39,7 @@ public class ResolutionFixed : MonoBehaviour
 
     private void Start()
     {
-        //PC/ÄÜ¼Ö °è¿­¿¡¼­¸¸ ÇØ»óµµ ¿äÃ»À» ÀÇ¹ÌÀÖ°Ô Àû¿ëÇÑ´Ù(¸ğ¹ÙÀÏÀº OS Á¤Ã¥»ó ¹«½ÃµÉ ¼ö ÀÖÀ½)
+        //PC/ì½˜ì†” ê³„ì—´ì—ì„œë§Œ í•´ìƒë„ ìš”ì²­ì„ ì˜ë¯¸ìˆê²Œ ì ìš©í•œë‹¤(ëª¨ë°”ì¼ì€ OS ì •ì±…ìƒ ë¬´ì‹œë  ìˆ˜ ìˆìŒ)
         if (applySetResolutionOnStart)
         {
             ApplyTargetResolution();
@@ -52,7 +52,7 @@ public class ResolutionFixed : MonoBehaviour
 
     private void Update()
     {
-        //Ã¢ Å©±â º¯°æ/ÀüÃ¼È­¸é ¸ğµå ÀüÈ¯ µîÀ» °¨ÁöÇØ¼­ ´Ù½Ã ºñÀ²À» ¸ÂÃá´Ù
+        //ì°½ í¬ê¸° ë³€ê²½/ì „ì²´í™”ë©´ ëª¨ë“œ ì „í™˜ ë“±ì„ ê°ì§€í•´ì„œ ë‹¤ì‹œ ë¹„ìœ¨ì„ ë§ì¶˜ë‹¤
         if (Screen.width != lastWidth || Screen.height != lastHeight || Screen.fullScreenMode != lastMode)
         {
             if (targetCamera == null)
@@ -66,7 +66,7 @@ public class ResolutionFixed : MonoBehaviour
         }
     }
 
-    //¿ÜºÎ¿¡¼­ °­Á¦·Î ÀçÀû¿ëÇÏ°í ½ÍÀ» ¶§ È£ÃâÇÑ´Ù(¿É¼Ç ¸Ş´º µî)
+    //ì™¸ë¶€ì—ì„œ ê°•ì œë¡œ ì¬ì ìš©í•˜ê³  ì‹¶ì„ ë•Œ í˜¸ì¶œí•œë‹¤(ì˜µì…˜ ë©”ë‰´ ë“±)
     public void Refresh()
     {
         if (targetCamera == null)
@@ -79,12 +79,12 @@ public class ResolutionFixed : MonoBehaviour
         CacheScreenState();
     }
 
-    //PC¿¡¼­¸¸ ¸ñÇ¥ ÇØ»óµµ¸¦ ¿äÃ»ÇÑ´Ù(½ÇÁ¦ Àû¿ëÀº OS/µå¶óÀÌ¹ö/¸ğµå¿¡ µû¶ó ´Ş¶óÁú ¼ö ÀÖÀ½)
+    //PCì—ì„œë§Œ ëª©í‘œ í•´ìƒë„ë¥¼ ìš”ì²­í•œë‹¤(ì‹¤ì œ ì ìš©ì€ OS/ë“œë¼ì´ë²„/ëª¨ë“œì— ë”°ë¼ ë‹¬ë¼ì§ˆ ìˆ˜ ìˆìŒ)
     private void ApplyTargetResolution()
     {
         if (targetWidth <= 0 || targetHeight <= 0)
         {
-            Debug.LogError("ResolutionFixed:targetWidth/targetHeight°¡ ¿Ã¹Ù¸£Áö ¾Ê¾Æ.");
+            Debug.LogError("ResolutionFixed:targetWidth/targetHeightê°€ ì˜¬ë°”ë¥´ì§€ ì•Šì•„.");
             return;
         }
 
@@ -96,7 +96,7 @@ public class ResolutionFixed : MonoBehaviour
         Screen.SetResolution(targetWidth, targetHeight, fullScreenMode);
     }
 
-    //ÇöÀç È­¸é »óÅÂ ÀúÀå(º¯°æ °¨Áö¿¡ »ç¿ë)
+    //í˜„ì¬ í™”ë©´ ìƒíƒœ ì €ì¥(ë³€ê²½ ê°ì§€ì— ì‚¬ìš©)
     private void CacheScreenState()
     {
         lastWidth = Screen.width;
@@ -104,19 +104,19 @@ public class ResolutionFixed : MonoBehaviour
         lastMode = Screen.fullScreenMode;
     }
 
-    //·¹ÅÍ/ÇÊ·¯¹Ú½º·Î Ä«¸Ş¶ó viewport¸¦ Á¶Á¤ÇØ ¸ñÇ¥ ºñÀ²À» À¯ÁöÇÑ´Ù
+    //ë ˆí„°/í•„ëŸ¬ë°•ìŠ¤ë¡œ ì¹´ë©”ë¼ viewportë¥¼ ì¡°ì •í•´ ëª©í‘œ ë¹„ìœ¨ì„ ìœ ì§€í•œë‹¤
     private void ApplyViewport()
     {
         if (targetCamera == null)
         {
-            Debug.LogError("ResolutionFixed:targetCamera¸¦ Ã£Áö ¸øÇß¾î.");
+            Debug.LogError("ResolutionFixed:targetCameraë¥¼ ì°¾ì§€ ëª»í–ˆì–´.");
             return;
         }
 
         float targetAspect = targetWidth / (float)targetHeight;
         float windowAspect = Screen.width / (float)Screen.height;
 
-        //±â±â(Ã¢)°¡ ´õ °¡·Î·Î ±æ¸é ÁÂ¿ì°¡ ³²À¸´Ï ÇÊ·¯¹Ú½º(ÁÂ¿ì °ËÁ¤)
+        //ê¸°ê¸°(ì°½)ê°€ ë” ê°€ë¡œë¡œ ê¸¸ë©´ ì¢Œìš°ê°€ ë‚¨ìœ¼ë‹ˆ í•„ëŸ¬ë°•ìŠ¤(ì¢Œìš° ê²€ì •)
         if (windowAspect > targetAspect)
         {
             float newWidth = targetAspect / windowAspect;
@@ -124,7 +124,7 @@ public class ResolutionFixed : MonoBehaviour
             return;
         }
 
-        //±â±â(Ã¢)°¡ ´õ ¼¼·Î·Î ±æ¸é »óÇÏ°¡ ³²À¸´Ï ·¹ÅÍ¹Ú½º(»óÇÏ °ËÁ¤)
+        //ê¸°ê¸°(ì°½)ê°€ ë” ì„¸ë¡œë¡œ ê¸¸ë©´ ìƒí•˜ê°€ ë‚¨ìœ¼ë‹ˆ ë ˆí„°ë°•ìŠ¤(ìƒí•˜ ê²€ì •)
         if (windowAspect < targetAspect)
         {
             float newHeight = windowAspect / targetAspect;
@@ -132,11 +132,11 @@ public class ResolutionFixed : MonoBehaviour
             return;
         }
 
-        //ºñÀ²ÀÌ °°À¸¸é ÀüÃ¼ È­¸é »ç¿ë
+        //ë¹„ìœ¨ì´ ê°™ìœ¼ë©´ ì „ì²´ í™”ë©´ ì‚¬ìš©
         targetCamera.rect = new Rect(0f, 0f, 1f, 1f);
     }
 
-    //Ä«¸Ş¶ó rect·Î »ı±ä ºó ¿µ¿ª¿¡ ÀÜ»óÀÌ ³²Áö ¾Êµµ·Ï °ËÁ¤ ¹è°æ Ä«¸Ş¶ó¸¦ ¸¸µç´Ù
+    //ì¹´ë©”ë¼ rectë¡œ ìƒê¸´ ë¹ˆ ì˜ì—­ì— ì”ìƒì´ ë‚¨ì§€ ì•Šë„ë¡ ê²€ì • ë°°ê²½ ì¹´ë©”ë¼ë¥¼ ë§Œë“ ë‹¤
     private void EnsureBackgroundCamera()
     {
         if (backgroundCamera != null)
@@ -154,10 +154,10 @@ public class ResolutionFixed : MonoBehaviour
         DontDestroyOnLoad(go);
 
         backgroundCamera = go.AddComponent<Camera>();
-        backgroundCamera.depth = targetCamera.depth - 100f; //Ç×»ó ¸ÕÀú Å¬¸®¾î
-        backgroundCamera.cullingMask = 0;                   //¾Æ¹«°Íµµ ·»´õ¸µÇÏÁö ¾ÊÀ½
-        backgroundCamera.clearFlags = CameraClearFlags.SolidColor;  //´Ü»öÀ¸·Î ÀüÃ¼ È­¸é Å¬¸®¾î
+        backgroundCamera.depth = targetCamera.depth - 100f; //í•­ìƒ ë¨¼ì € í´ë¦¬ì–´
+        backgroundCamera.cullingMask = 0;                   //ì•„ë¬´ê²ƒë„ ë Œë”ë§í•˜ì§€ ì•ŠìŒ
+        backgroundCamera.clearFlags = CameraClearFlags.SolidColor;  //ë‹¨ìƒ‰ìœ¼ë¡œ ì „ì²´ í™”ë©´ í´ë¦¬ì–´
         backgroundCamera.backgroundColor = barColor;
-        backgroundCamera.rect = new Rect(0f, 0f, 1f, 1f);   //ÀüÃ¼ È­¸é
+        backgroundCamera.rect = new Rect(0f, 0f, 1f, 1f);   //ì „ì²´ í™”ë©´
     }
 }

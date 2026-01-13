@@ -5,7 +5,57 @@ UISceneCanvasKind는Core영역에서사용되는enum다.
 -씬전환을비동기로처리하고,전환중중복호출을가드한다.
 -UI상태전환/페이드/버튼입력등화면흐름을담당한다.
 -컴포넌트참조는Awake에서캐싱하고,null을가드한다.
+-씬이름에숫자/점이포함되면enum.ToString()로직접로드할수없으므로SceneName매핑을사용한다.
 */
+public static class EnumData
+{
+    public enum PopupId
+    {
+        None = 0,
+        Shop = 1,
+        LevelUp = 2,
+        Settings = 100,
+    }
+    public enum GameState
+    {
+        None = 0,
+        Boot = 1,
+        Lobby = 2,
+        Battle = 3,
+        Result = 4,
+        Settings = 10,
+    }
+
+    //Screen UI 식별 전용 ID
+    public enum ScreenId
+    {
+        None = 0,      //없음
+        Boot = 1,      //부트
+        Lobby = 2,     //로비
+        Game = 3,      //게임/배틀
+        PartyList = 4, //파티리스트
+        Pokedex = 5,   //도감
+    }
+
+    //씬 종류
+    public enum sceneType
+    {
+        BootScene = 0,
+        LobbyScene = 1,
+        GameScene = 2,
+    }
+
+    public static string GetSceneName(sceneType type)
+    {
+        return type switch
+        {
+            sceneType.BootScene => "01. BootScene",
+            sceneType.LobbyScene => "02. LobbyScene",
+            sceneType.GameScene => "03. GameScene",
+            _ => string.Empty
+        };
+    }
+}
 
 //UICanvas역할구분용
 public enum UISceneCanvasKind
