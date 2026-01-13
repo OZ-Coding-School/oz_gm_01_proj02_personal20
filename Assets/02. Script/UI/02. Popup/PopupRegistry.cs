@@ -1,36 +1,28 @@
 using UnityEngine;
 
-/*
-PopupRegistry는씬에배치된UIPopup들을자동으로UIManager에등록하는MonoBehaviour컴포넌트다.
--비활성팝업까지탐색해등록한다.
-*/
+//PopupPanel 아래에 붙여두면
+//하위에 있는 모든 UIPopup을 자동으로 UIManager에 등록
 public class PopupRegistry : MonoBehaviour
 {
-    [SerializeField] private bool registerOnStart = true;
-
     private void Start()
     {
-        if (!registerOnStart)
-        {
-            return;
-        }
+        Debug.Log("//PopupRegistry Start");
 
         if (UIManager.Instance == null)
         {
-            Debug.LogError("//PopupRegistry failed:UIManager.Instance null");
+            Debug.LogError("//UIManager.Instance == null in PopupRegistry(Start)");
             return;
         }
 
+        //비활성화된 팝업까지 전부 검색
         UIPopup[] popups = GetComponentsInChildren<UIPopup>(true);
+        Debug.Log($"//Popups Found Count: {popups.Length}");
+
         for (int i = 0; i < popups.Length; i++)
         {
-            UIPopup popup = popups[i];
-            if (popup == null)
-            {
-                continue;
-            }
-
-            UIManager.Instance.RegisterPopup(popup);
+            Debug.Log($"//Found Popup: {popups[i].name}");
+            Debug.Log($"//Found PopupId: {popups[i].PopupId}");
+            UIManager.Instance.RegisterPopup(popups[i]);
         }
     }
 }

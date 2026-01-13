@@ -1,36 +1,43 @@
 using UnityEngine;
 
 /*
-ScreenRegistry는씬에배치된UIScreen들을자동으로UIManager에등록하는MonoBehaviour컴포넌트다.
--비활성스크린까지탐색해등록한다.
+ScreenRegistry는ScreenRoot아래UIScreen들을자동으로UIManager에등록한다.
+-비활성포함탐색후등록한다.
+-등록후UIManager가현재씬에맞는Screen을선택해표시한다.
 */
 public class ScreenRegistry : MonoBehaviour
 {
-    [SerializeField] private bool registerOnStart = true;
+    [SerializeField] private bool registerOnAwake = true;//Awake등록여부
 
-    private void Start()
+    private void Awake()
     {
-        if (!registerOnStart)
+        if (!registerOnAwake)
         {
             return;
         }
 
+        RegisterAll();
+    }
+
+    public void RegisterAll()
+    {
         if (UIManager.Instance == null)
         {
-            Debug.LogError("//ScreenRegistry failed:UIManager.Instance null");
             return;
         }
 
         UIScreen[] screens = GetComponentsInChildren<UIScreen>(true);
         for (int i = 0; i < screens.Length; i++)
         {
-            UIScreen screen = screens[i];
-            if (screen == null)
+            UIScreen s = screens[i];
+            if (s == null)
             {
                 continue;
             }
 
-            UIManager.Instance.RegisterScreen(screen);
+            UIManager.Instance.RegisterScreen(s);
         }
+
+        UIManager.Instance.ApplyScreenForActiveScene();
     }
 }

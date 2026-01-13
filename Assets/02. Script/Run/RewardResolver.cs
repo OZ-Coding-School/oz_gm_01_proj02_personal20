@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
-RewardResolver´Â¾À/¿ÀºêÁ§Æ®¿¡ºÙ´ÂMonoBehaviourÄÄÆ÷³ÍÆ®´Ù.
--ÀÌ½ºÅ©¸³Æ®´ÂÇÁ·ÎÁ§Æ®¿¡¼­RewardResolver¿ªÇÒÀ»ÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
--¿ÜºÎÈ£ÃâÁöÁ¡À»¸íÈ®È÷ÇÏ°íÁßº¹Ã³¸®¸¦¸·´Â´Ù.
+RewardResolverëŠ”ì”¬/ì˜¤ë¸Œì íŠ¸ì—ë¶™ëŠ”MonoBehaviourì»´í¬ë„ŒíŠ¸ë‹¤.
+-ì´ìŠ¤í¬ë¦½íŠ¸ëŠ”í”„ë¡œì íŠ¸ì—ì„œRewardResolverì—­í• ì„í•œë‹¤.
+-ì»´í¬ë„ŒíŠ¸ì°¸ì¡°ëŠ”Awakeì—ì„œìºì‹±í•˜ê³ ,nullì„ê°€ë“œí•œë‹¤.
+-ì™¸ë¶€í˜¸ì¶œì§€ì ì„ëª…í™•íˆí•˜ê³ ì¤‘ë³µì²˜ë¦¬ë¥¼ë§‰ëŠ”ë‹¤.
 */
 public class RewardResolver : MonoBehaviour
 {

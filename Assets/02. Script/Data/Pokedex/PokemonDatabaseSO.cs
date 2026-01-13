@@ -2,15 +2,15 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
-PokemonDatabaseSO´Â¿¡µğÅÍ¿¡¼­»ı¼ºµÇ´ÂScriptableObjectµ¥ÀÌÅÍ´Ù.
--µ¥ÀÌÅÍÅ×ÀÌºí/ScriptableObject¸¦ÀĞ¾î·±Å¸ÀÓÁ¶È¸°¡°¡´ÉÇÏµµ·ÏÃÊ±âÈ­ÇÑ´Ù.
--¿ÜºÎ¿¡¼­´ÂSetEntriesÀ»È£ÃâÇØÀÌ±â´ÉÀ»»ç¿ëÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
+PokemonDatabaseSOëŠ”ì—ë””í„°ì—ì„œìƒì„±ë˜ëŠ”ScriptableObjectë°ì´í„°ë‹¤.
+-ë°ì´í„°í…Œì´ë¸”/ScriptableObjectë¥¼ì½ì–´ëŸ°íƒ€ì„ì¡°íšŒê°€ê°€ëŠ¥í•˜ë„ë¡ì´ˆê¸°í™”í•œë‹¤.
+-ì™¸ë¶€ì—ì„œëŠ”SetEntriesì„í˜¸ì¶œí•´ì´ê¸°ëŠ¥ì„ì‚¬ìš©í•œë‹¤.
+-ì»´í¬ë„ŒíŠ¸ì°¸ì¡°ëŠ”Awakeì—ì„œìºì‹±í•˜ê³ ,nullì„ê°€ë“œí•œë‹¤.
 */
 [CreateAssetMenu(fileName = "PokemonDatabase", menuName = "Data/Pokedex/Pokemon Database")]
 public class PokemonDatabaseSO : ScriptableObject
 {
-    [SerializeField] private List<PokemonEntry> entries = new List<PokemonEntry>(); //ÀüÃ¼ Æ÷ÄÏ¸ó ¸ñ·Ï
+    [SerializeField] private List<PokemonEntry> entries = new List<PokemonEntry>(); //ì „ì²´ í¬ì¼“ëª¬ ëª©ë¡
 
     public IReadOnlyList<PokemonEntry> Entries => entries;
 

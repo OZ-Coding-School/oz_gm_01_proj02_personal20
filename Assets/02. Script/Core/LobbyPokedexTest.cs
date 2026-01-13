@@ -1,42 +1,47 @@
+using System.Collections;
+using System.Collections.Generic;
 using UnityEngine;
 
 /*
-LobbyPokedexTest´Â¾À/¿ÀºêÁ§Æ®¿¡ºÙ´ÂMonoBehaviourÄÄÆ÷³ÍÆ®´Ù.
--¾À¿¡¼­ºü¸¥»óÅÂÈ®ÀÎÀ»À§ÇÑ½º¸ğÅ©Å×½ºÆ®¿ëÃâ·ÂÀ»Á¦°øÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
--Update¿¡¼­GCÀ¯¹ßÆĞÅÏÀ»ÇÇÇÑ´Ù.
+LobbyPokedexTestëŠ”ë„ê°DBì—°ê²°ìƒíƒœë¥¼ë¹ ë¥´ê²Œí™•ì¸í•˜ê¸°ìœ„í•œìŠ¤ëª¨í¬í…ŒìŠ¤íŠ¸ë‹¤.
+-GameManagerì˜PokedexServiceê°€ì´ˆê¸°í™”ë˜ì—ˆëŠ”ì§€í™•ì¸í•œë‹¤.
+-ì´ˆê¸°í™”ë˜ì—ˆë‹¤ë©´íŠ¹ì •Noì˜ì—”íŠ¸ë¦¬ì¼ë¶€ë¥¼ì½˜ì†”ì—ì¶œë ¥í•œë‹¤.
 */
 public class LobbyPokedexTest : MonoBehaviour
 {
-    [SerializeField] private int printCount = 5;//ÄÜ¼Ö¿¡ Ãâ·ÂÇÒ °³¼ö
+    [SerializeField] private int testNo = 6;
+    [SerializeField] private int printCount = 5;
 
-    private void Start()
+    private IEnumerator Start()
     {
-        if (GameManager.Instance == null)
+        while (GameManager.Instance == null)
         {
-            Debug.LogError("GameManager.Instance°¡ nullÀÌ¾ß.BootScene¿¡¼­ GameManager°¡ »ı¼ºµÇ´ÂÁö È®ÀÎÇØÁà.");
-            return;
+            yield return null;
         }
 
-        if (GameManager.Instance.Pokedex == null)
+        while (GameManager.Instance.Pokedex == null)
         {
-            Debug.LogError("PokedexService°¡ nullÀÌ¾ß.GameManager°¡ PokedexService¸¦ »ı¼º/ÂüÁ¶ÇÏ´ÂÁö È®ÀÎÇØÁà.");
-            return;
+            yield return null;
         }
 
-        if (!GameManager.Instance.Pokedex.IsInitialized)
+        while (!GameManager.Instance.Pokedex.IsInitialized)
         {
-            Debug.LogError("PokedexService°¡ ÃÊ±âÈ­µÇÁö ¾Ê¾Ò¾î.GameManager¿¡ PokemonDatabaseSO°¡ ÇÒ´çµÆ´ÂÁö È®ÀÎÇØÁà.");
-            return;
+            yield return null;
         }
 
-        var list = GameManager.Instance.Pokedex.GetAll();
-        Debug.Log($"Pokedex OK.Entries:{list.Count}");
-
-        int count = Mathf.Clamp(printCount, 0, list.Count);
-        for (int i = 0; i < count; i++)
+        IReadOnlyList<PokemonEntry> list;
+        if (!GameManager.Instance.Pokedex.TryGetAllByNo(testNo, out list) || list == null)
         {
-            var e = list[i];
+            Debug.LogWarning($"//LobbyPokedexTest:No={testNo} not found");
+            yield break;
+        }
+
+        int n = Mathf.Min(printCount, list.Count);
+        Debug.Log($"//LobbyPokedexTest:No={testNo} entries={list.Count} print={n}");
+
+        for (int i = 0; i < n; i++)
+        {
+            PokemonEntry e = list[i];
             if (e == null)
             {
                 continue;

@@ -3,32 +3,32 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
-PokedexService´Â¾À/¿ÀºêÁ§Æ®¿¡ºÙ´ÂMonoBehaviourÄÄÆ÷³ÍÆ®´Ù.
--¸Å´ÏÀú¿Íµ¥ÀÌÅÍ»çÀÌ¿¡¼­±â´É´ÜÀ§¸¦Á¦°øÇÏ´Â¼­ºñ½º·¹ÀÌ¾î´Ù.
--¿ÜºÎ¿¡¼­´ÂInitializeÀ»È£ÃâÇØÀÌ±â´ÉÀ»»ç¿ëÇÑ´Ù.
--¿ÜºÎ¿¡¼­´ÂRebuildCacheÀ»È£ÃâÇØÀÌ±â´ÉÀ»»ç¿ëÇÑ´Ù.
--¿ÜºÎ¿¡¼­´ÂGetAllÀ»È£ÃâÇØÀÌ±â´ÉÀ»»ç¿ëÇÑ´Ù.
--¿ÜºÎ¿¡¼­´ÂTryGetAllByNoÀ»È£ÃâÇØÀÌ±â´ÉÀ»»ç¿ëÇÑ´Ù.
+PokedexServiceëŠ”ì”¬/ì˜¤ë¸Œì íŠ¸ì—ë¶™ëŠ”MonoBehaviourì»´í¬ë„ŒíŠ¸ë‹¤.
+-ë§¤ë‹ˆì €ì™€ë°ì´í„°ì‚¬ì´ì—ì„œê¸°ëŠ¥ë‹¨ìœ„ë¥¼ì œê³µí•˜ëŠ”ì„œë¹„ìŠ¤ë ˆì´ì–´ë‹¤.
+-ì™¸ë¶€ì—ì„œëŠ”Initializeì„í˜¸ì¶œí•´ì´ê¸°ëŠ¥ì„ì‚¬ìš©í•œë‹¤.
+-ì™¸ë¶€ì—ì„œëŠ”RebuildCacheì„í˜¸ì¶œí•´ì´ê¸°ëŠ¥ì„ì‚¬ìš©í•œë‹¤.
+-ì™¸ë¶€ì—ì„œëŠ”GetAllì„í˜¸ì¶œí•´ì´ê¸°ëŠ¥ì„ì‚¬ìš©í•œë‹¤.
+-ì™¸ë¶€ì—ì„œëŠ”TryGetAllByNoì„í˜¸ì¶œí•´ì´ê¸°ëŠ¥ì„ì‚¬ìš©í•œë‹¤.
 */
 public class PokedexService : MonoBehaviour
 {
-    [SerializeField] private PokemonDatabaseSO database;//µµ°¨ DB(SO) ·±Å¸ÀÓ ÂüÁ¶
+    [SerializeField] private PokemonDatabaseSO database;//ë„ê° DB(SO) ëŸ°íƒ€ì„ ì°¸ì¡°
 
-    //No->°°Àº µµ°¨¹øÈ£¸¦ °¡Áø ¸ğµç ¿£Æ®¸®(±âº»Æû+Æ¯¼öÆû)¸¦ ¹­¾î¼­ ÀúÀå
+    //No->ê°™ì€ ë„ê°ë²ˆí˜¸ë¥¼ ê°€ì§„ ëª¨ë“  ì—”íŠ¸ë¦¬(ê¸°ë³¸í¼+íŠ¹ìˆ˜í¼)ë¥¼ ë¬¶ì–´ì„œ ì €ì¥
     private readonly Dictionary<int, List<PokemonEntry>> byNo = new Dictionary<int, List<PokemonEntry>>();
 
-    //Name->ºü¸¥ Á¢±Ù¿ë(Áßº¹ ÀÌ¸§ÀÌ ÀÖÀ¸¸é ÃÖÃÊ 1°³¸¸ ÀúÀå)
+    //Name->ë¹ ë¥¸ ì ‘ê·¼ìš©(ì¤‘ë³µ ì´ë¦„ì´ ìˆìœ¼ë©´ ìµœì´ˆ 1ê°œë§Œ ì €ì¥)
     private readonly Dictionary<string, PokemonEntry> byName = new Dictionary<string, PokemonEntry>(StringComparer.OrdinalIgnoreCase);
 
-    public bool IsInitialized { get; private set; }//ÃÊ±âÈ­ ¿Ï·á ¿©ºÎ
-    public PokemonDatabaseSO Database => database;//¿øº» DB Á¢±Ù(µğ¹ö±×/Åø¸µ¿ë)
+    public bool IsInitialized { get; private set; }//ì´ˆê¸°í™” ì™„ë£Œ ì—¬ë¶€
+    public PokemonDatabaseSO Database => database;//ì›ë³¸ DB ì ‘ê·¼(ë””ë²„ê·¸/íˆ´ë§ìš©)
 
     public void Initialize(PokemonDatabaseSO db)
     {
-        //·±Å¸ÀÓ¿¡¼­ DB ÂüÁ¶°¡ ¾øÀ¸¸é ÀÌÈÄ ¸ğµç Á¶È¸°¡ ¹«ÀÇ¹ÌÇÏ¹Ç·Î Áï½Ã ½ÇÆĞ Ã³¸®
+        //ëŸ°íƒ€ì„ì—ì„œ DB ì°¸ì¡°ê°€ ì—†ìœ¼ë©´ ì´í›„ ëª¨ë“  ì¡°íšŒê°€ ë¬´ì˜ë¯¸í•˜ë¯€ë¡œ ì¦‰ì‹œ ì‹¤íŒ¨ ì²˜ë¦¬
         if (db == null)
         {
-            Debug.LogError("PokedexService.Initialize:db°¡ nullÀÌ¾ß.");
+            Debug.LogError("PokedexService.Initialize:dbê°€ nullì´ì•¼.");
             IsInitialized = false;
             return;
         }
@@ -39,13 +39,13 @@ public class PokedexService : MonoBehaviour
 
     public void RebuildCache()
     {
-        //ÀÓÆ÷Æ®/Àç·Îµå/Å×½ºÆ® µî¿¡¼­ ¿©·¯ ¹ø È£ÃâµÉ ¼ö ÀÖÀ¸´Ï Ç×»ó ÃÊ±âÈ­ ÈÄ Àç±¸Ãà
+        //ì„í¬íŠ¸/ì¬ë¡œë“œ/í…ŒìŠ¤íŠ¸ ë“±ì—ì„œ ì—¬ëŸ¬ ë²ˆ í˜¸ì¶œë  ìˆ˜ ìˆìœ¼ë‹ˆ í•­ìƒ ì´ˆê¸°í™” í›„ ì¬êµ¬ì¶•
         byNo.Clear();
         byName.Clear();
 
         if (database == null)
         {
-            Debug.LogError("PokedexService.RebuildCache:database°¡ nullÀÌ¾ß.");
+            Debug.LogError("PokedexService.RebuildCache:databaseê°€ nullì´ì•¼.");
             IsInitialized = false;
             return;
         }
@@ -53,13 +53,13 @@ public class PokedexService : MonoBehaviour
         IReadOnlyList<PokemonEntry> entries = database.Entries;
         if (entries == null || entries.Count == 0)
         {
-            //ºñ¾îÀÖ´Â DBµµ ¼­ºñ½º´Â µ¿ÀÛÇÒ ¼ö ÀÖ¾î¾ß ÇÏ¹Ç·Î Initialized´Â true·Î µĞ´Ù
-            Debug.LogWarning("PokemonDatabaseSO¿¡ entries°¡ ¾ø°Å³ª ºñ¾îÀÖ¾î.");
+            //ë¹„ì–´ìˆëŠ” DBë„ ì„œë¹„ìŠ¤ëŠ” ë™ì‘í•  ìˆ˜ ìˆì–´ì•¼ í•˜ë¯€ë¡œ InitializedëŠ” trueë¡œ ë‘”ë‹¤
+            Debug.LogWarning("PokemonDatabaseSOì— entriesê°€ ì—†ê±°ë‚˜ ë¹„ì–´ìˆì–´.");
             IsInitialized = true;
             return;
         }
 
-        //Ä³½Ã ±¸Ãà:No->List,Name->Entry
+        //ìºì‹œ êµ¬ì¶•:No->List,Name->Entry
         for (int i = 0; i < entries.Count; i++)
         {
             PokemonEntry e = entries[i];
@@ -68,7 +68,7 @@ public class PokedexService : MonoBehaviour
                 continue;
             }
 
-            //No->List Ä³½Ã(°°Àº No´Â °°Àº ¸®½ºÆ®¿¡ ½×ÀÎ´Ù)
+            //No->List ìºì‹œ(ê°™ì€ NoëŠ” ê°™ì€ ë¦¬ìŠ¤íŠ¸ì— ìŒ“ì¸ë‹¤)
             if (!byNo.TryGetValue(e.No, out List<PokemonEntry> list))
             {
                 list = new List<PokemonEntry>();
@@ -77,7 +77,7 @@ public class PokedexService : MonoBehaviour
 
             list.Add(e);
 
-            //Name->Entry Ä³½Ã(µ¿¸íÀÌÀÎ/Áßº¹ÀÌ ÀÖÀ¸¸é ÃÖÃÊ Ç×¸ñÀ» À¯Áö)
+            //Name->Entry ìºì‹œ(ë™ëª…ì´ì¸/ì¤‘ë³µì´ ìˆìœ¼ë©´ ìµœì´ˆ í•­ëª©ì„ ìœ ì§€)
             if (!string.IsNullOrWhiteSpace(e.Name) && !byName.ContainsKey(e.Name))
             {
                 byName.Add(e.Name, e);
@@ -89,7 +89,7 @@ public class PokedexService : MonoBehaviour
 
     public IReadOnlyList<PokemonEntry> GetAll()
     {
-        //µğ¹ö±×/¸®½ºÆ® UI µî¿¡¼­ ÀüÃ¼ ¿£Æ®¸®°¡ ÇÊ¿äÇÒ ¶§ »ç¿ë
+        //ë””ë²„ê·¸/ë¦¬ìŠ¤íŠ¸ UI ë“±ì—ì„œ ì „ì²´ ì—”íŠ¸ë¦¬ê°€ í•„ìš”í•  ë•Œ ì‚¬ìš©
         if (database == null || database.Entries == null)
         {
             return Array.Empty<PokemonEntry>();
@@ -100,7 +100,7 @@ public class PokedexService : MonoBehaviour
 
     public bool TryGetAllByNo(int no, out IReadOnlyList<PokemonEntry> entries)
     {
-        //°°Àº µµ°¨¹øÈ£ÀÇ ±âº»Æû/Æ¯¼öÆûÀ» ÀüºÎ ¹Ş°í ½ÍÀ» ¶§ »ç¿ë
+        //ê°™ì€ ë„ê°ë²ˆí˜¸ì˜ ê¸°ë³¸í¼/íŠ¹ìˆ˜í¼ì„ ì „ë¶€ ë°›ê³  ì‹¶ì„ ë•Œ ì‚¬ìš©
         if (byNo.TryGetValue(no, out List<PokemonEntry> list) && list != null && list.Count > 0)
         {
             entries = list;
@@ -113,7 +113,7 @@ public class PokedexService : MonoBehaviour
 
     public bool TryGetDefaultByNo(int no, out PokemonEntry entry)
     {
-        //´ëÇ¥ 1°³(±âº»Æû ¿ì¼±)¸¸ »Ì°í ½ÍÀ» ¶§ »ç¿ë
+        //ëŒ€í‘œ 1ê°œ(ê¸°ë³¸í¼ ìš°ì„ )ë§Œ ë½‘ê³  ì‹¶ì„ ë•Œ ì‚¬ìš©
         if (!TryGetAllByNo(no, out IReadOnlyList<PokemonEntry> entries))
         {
             entry = null;
@@ -126,13 +126,13 @@ public class PokedexService : MonoBehaviour
 
     public bool TryGetByNo(int no, out PokemonEntry entry)
     {
-        //±âÁ¸ ÄÚµå È£È¯¿ë(³»ºÎÀûÀ¸·Î Default ±ÔÄ¢À» »ç¿ë)
+        //ê¸°ì¡´ ì½”ë“œ í˜¸í™˜ìš©(ë‚´ë¶€ì ìœ¼ë¡œ Default ê·œì¹™ì„ ì‚¬ìš©)
         return TryGetDefaultByNo(no, out entry);
     }
 
     public bool TryGetByName(string name, out PokemonEntry entry)
     {
-        //UI °Ë»ö/µğ¹ö±×¿¡¼­ ÀÌ¸§À¸·Î ¹Ù·Î Ã£°í ½ÍÀ» ¶§ »ç¿ë
+        //UI ê²€ìƒ‰/ë””ë²„ê·¸ì—ì„œ ì´ë¦„ìœ¼ë¡œ ë°”ë¡œ ì°¾ê³  ì‹¶ì„ ë•Œ ì‚¬ìš©
         if (string.IsNullOrWhiteSpace(name))
         {
             entry = null;
@@ -144,10 +144,10 @@ public class PokedexService : MonoBehaviour
 
     public PokemonEntry GetByNoOrThrow(int no)
     {
-        //Å×½ºÆ®/ÇÊ¼ö µ¥ÀÌÅÍ ±¸°£¿¡¼­ ½ÇÆĞ¸¦ °­ÇÏ°Ô µå·¯³»°í ½ÍÀ» ¶§ »ç¿ë
+        //í…ŒìŠ¤íŠ¸/í•„ìˆ˜ ë°ì´í„° êµ¬ê°„ì—ì„œ ì‹¤íŒ¨ë¥¼ ê°•í•˜ê²Œ ë“œëŸ¬ë‚´ê³  ì‹¶ì„ ë•Œ ì‚¬ìš©
         if (!TryGetDefaultByNo(no, out PokemonEntry entry))
         {
-            throw new KeyNotFoundException($"µµ°¨ ¹øÈ£¸¦ Ã£Áö ¸øÇß¾î:{no}");
+            throw new KeyNotFoundException($"ë„ê° ë²ˆí˜¸ë¥¼ ì°¾ì§€ ëª»í–ˆì–´:{no}");
         }
 
         return entry;
@@ -157,7 +157,7 @@ public class PokedexService : MonoBehaviour
     {
         if (!TryGetAllByNo(no, out IReadOnlyList<PokemonEntry> entries))
         {
-            throw new KeyNotFoundException($"µµ°¨ ¹øÈ£¸¦ Ã£Áö ¸øÇß¾î:{no}");
+            throw new KeyNotFoundException($"ë„ê° ë²ˆí˜¸ë¥¼ ì°¾ì§€ ëª»í–ˆì–´:{no}");
         }
 
         return entries;
@@ -167,7 +167,7 @@ public class PokedexService : MonoBehaviour
     {
         if (!TryGetByName(name, out PokemonEntry entry))
         {
-            throw new KeyNotFoundException($"µµ°¨ ÀÌ¸§À» Ã£Áö ¸øÇß¾î:{name}");
+            throw new KeyNotFoundException($"ë„ê° ì´ë¦„ì„ ì°¾ì§€ ëª»í–ˆì–´:{name}");
         }
 
         return entry;
@@ -175,10 +175,10 @@ public class PokedexService : MonoBehaviour
 
     private PokemonEntry SelectDefaultEntry(IReadOnlyList<PokemonEntry> entries)
     {
-        //°°Àº No¿¡ ¿©·¯ ÆûÀÌ ÀÖÀ» ¼ö ÀÖÀ¸¹Ç·Î ´ëÇ¥ 1°³¸¦ °í¸£´Â ±ÔÄ¢À» °íÁ¤ÇÑ´Ù.
-        //1¼øÀ§:EvolutionCode>=0(±âº»Æû/ÀÏ¹İÆû)
-        //2¼øÀ§:EvolutionCode<0(Æ¯¼öÆû)
-        //µ¿·üÀÌ¸é ÀÌ¸§ Å°¿öµå/ÀÌ¸§ ±æÀÌ·Î Å¸ÀÌºê·¹ÀÌÅ©ÇÑ´Ù.
+        //ê°™ì€ Noì— ì—¬ëŸ¬ í¼ì´ ìˆì„ ìˆ˜ ìˆìœ¼ë¯€ë¡œ ëŒ€í‘œ 1ê°œë¥¼ ê³ ë¥´ëŠ” ê·œì¹™ì„ ê³ ì •í•œë‹¤.
+        //1ìˆœìœ„:EvolutionCode>=0(ê¸°ë³¸í¼/ì¼ë°˜í¼)
+        //2ìˆœìœ„:EvolutionCode<0(íŠ¹ìˆ˜í¼)
+        //ë™ë¥ ì´ë©´ ì´ë¦„ í‚¤ì›Œë“œ/ì´ë¦„ ê¸¸ì´ë¡œ íƒ€ì´ë¸Œë ˆì´í¬í•œë‹¤.
 
         if (entries == null || entries.Count == 0)
         {
@@ -195,30 +195,30 @@ public class PokedexService : MonoBehaviour
                 continue;
             }
 
-            //Ã¹ À¯È¿ ¿£Æ®¸®¸¦ ÃÊ±â°ªÀ¸·Î µĞ´Ù
+            //ì²« ìœ íš¨ ì—”íŠ¸ë¦¬ë¥¼ ì´ˆê¸°ê°’ìœ¼ë¡œ ë‘”ë‹¤
             if (best == null)
             {
                 best = e;
                 continue;
             }
 
-            //Æ¯¼öÆû ¿©ºÎ¸¦ EvolutionCode·Î 1Â÷ ÆÇÁ¤ÇÑ´Ù
-            //¸Ş°¡X/Y(-101/-102),ÆûÃ¼ÀÎÁö(-301...),°Å´ÙÀÌ¸Æ½º(-2) µîÀº ¸ğµÎ À½¼ö·Î µé¾î¿À¹Ç·Î ±âº»Æûº¸´Ù µÚ·Î ¹Ğ¸°´Ù
+            //íŠ¹ìˆ˜í¼ ì—¬ë¶€ë¥¼ EvolutionCodeë¡œ 1ì°¨ íŒì •í•œë‹¤
+            //ë©”ê°€X/Y(-101/-102),í¼ì²´ì¸ì§€(-301...),ê±°ë‹¤ì´ë§¥ìŠ¤(-2) ë“±ì€ ëª¨ë‘ ìŒìˆ˜ë¡œ ë“¤ì–´ì˜¤ë¯€ë¡œ ê¸°ë³¸í¼ë³´ë‹¤ ë’¤ë¡œ ë°€ë¦°ë‹¤
             bool bestIsSpecial = best.EvolutionCode < 0;
             bool curIsSpecial = e.EvolutionCode < 0;
 
-            //best°¡ Æ¯¼öÆûÀÌ°í ÇöÀç°¡ ±âº»ÆûÀÌ¸é Áï½Ã ±³Ã¼
+            //bestê°€ íŠ¹ìˆ˜í¼ì´ê³  í˜„ì¬ê°€ ê¸°ë³¸í¼ì´ë©´ ì¦‰ì‹œ êµì²´
             if (bestIsSpecial && !curIsSpecial)
             {
                 best = e;
                 continue;
             }
 
-            //µÑ ´Ù °°Àº ¹üÁÖ¸é(µÑ ´Ù ±âº»ÆûÀÌ°Å³ª µÑ ´Ù Æ¯¼öÆû) Ãß°¡ ±ÔÄ¢À¸·Î ¾ÈÁ¤ÀûÀÎ ´ëÇ¥¸¦ °í¸¥´Ù
+            //ë‘˜ ë‹¤ ê°™ì€ ë²”ì£¼ë©´(ë‘˜ ë‹¤ ê¸°ë³¸í¼ì´ê±°ë‚˜ ë‘˜ ë‹¤ íŠ¹ìˆ˜í¼) ì¶”ê°€ ê·œì¹™ìœ¼ë¡œ ì•ˆì •ì ì¸ ëŒ€í‘œë¥¼ ê³ ë¥¸ë‹¤
             if (bestIsSpecial == curIsSpecial)
             {
-                //ÀÌ¸§ Å°¿öµå ±â¹İ º¸Á¶ ÆÇÁ¤(µ¥ÀÌÅÍ°¡ ºÒ¿ÏÀüÇÑ ½Ã±â¿¡ ´ëÀÀ)
-                //¿¹:EvolutionCode°¡ Àß¸ø µé¾î°¡µµ "¸Ş°¡/Æû/¸®Àü" °°Àº Å°¿öµå°¡ ÀÖÀ¸¸é Æ¯¼ö·Î º¸´Â º¸Á¤ ¿ªÇÒ
+                //ì´ë¦„ í‚¤ì›Œë“œ ê¸°ë°˜ ë³´ì¡° íŒì •(ë°ì´í„°ê°€ ë¶ˆì™„ì „í•œ ì‹œê¸°ì— ëŒ€ì‘)
+                //ì˜ˆ:EvolutionCodeê°€ ì˜ëª» ë“¤ì–´ê°€ë„ "ë©”ê°€/í¼/ë¦¬ì „" ê°™ì€ í‚¤ì›Œë“œê°€ ìˆìœ¼ë©´ íŠ¹ìˆ˜ë¡œ ë³´ëŠ” ë³´ì • ì—­í• 
                 bool bestNameSpecial = IsSpecialFormName(best.Name);
                 bool curNameSpecial = IsSpecialFormName(e.Name);
 
@@ -230,8 +230,8 @@ public class PokedexService : MonoBehaviour
 
                 if (bestNameSpecial == curNameSpecial)
                 {
-                    //¸¶Áö¸· Å¸ÀÌºê·¹ÀÌÄ¿:ÂªÀº ÀÌ¸§ ¿ì¼±
-                    //¿¹:¸®ÀÚ¸ù vs ¸Ş°¡¸®ÀÚ¸ùX/Y Ã³·³ ±âº»ÆûÀÌ º¸Åë ´õ Âª°Ô À¯ÁöµÇ´Â Æí
+                    //ë§ˆì§€ë§‰ íƒ€ì´ë¸Œë ˆì´ì»¤:ì§§ì€ ì´ë¦„ ìš°ì„ 
+                    //ì˜ˆ:ë¦¬ìëª½ vs ë©”ê°€ë¦¬ìëª½X/Y ì²˜ëŸ¼ ê¸°ë³¸í¼ì´ ë³´í†µ ë” ì§§ê²Œ ìœ ì§€ë˜ëŠ” í¸
                     int bestLen = string.IsNullOrWhiteSpace(best.Name) ? int.MaxValue : best.Name.Length;
                     int curLen = string.IsNullOrWhiteSpace(e.Name) ? int.MaxValue : e.Name.Length;
 
@@ -243,14 +243,14 @@ public class PokedexService : MonoBehaviour
             }
         }
 
-        //¸ğµç Ç×¸ñÀÌ nullÀÎ ºñÁ¤»ó »óÈ²À» ´ëºñÇØ Æú¹é
+        //ëª¨ë“  í•­ëª©ì´ nullì¸ ë¹„ì •ìƒ ìƒí™©ì„ ëŒ€ë¹„í•´ í´ë°±
         return best ?? entries[0];
     }
 
     private bool IsSpecialFormName(string name)
     {
-        //EvolutionCode°¡ ¾ÆÁ÷ ¿Ïº®È÷ Á¤¸®µÇÁö ¾ÊÀº »óÅÂ¿¡¼­µµ Æû ¿©ºÎ¸¦ ¾î´À Á¤µµ °¨ÁöÇÏ±â À§ÇÑ º¸Á¶ ±ÔÄ¢
-        //ÃÖÁ¾ÀûÀ¸·Î´Â EvolutionCode°¡ Á¤´äÀÌ µÇµµ·Ï µ¥ÀÌÅÍ¸¦ ¸ÂÃß´Â °ÍÀÌ ¸ñÇ¥´Ù
+        //EvolutionCodeê°€ ì•„ì§ ì™„ë²½íˆ ì •ë¦¬ë˜ì§€ ì•Šì€ ìƒíƒœì—ì„œë„ í¼ ì—¬ë¶€ë¥¼ ì–´ëŠ ì •ë„ ê°ì§€í•˜ê¸° ìœ„í•œ ë³´ì¡° ê·œì¹™
+        //ìµœì¢…ì ìœ¼ë¡œëŠ” EvolutionCodeê°€ ì •ë‹µì´ ë˜ë„ë¡ ë°ì´í„°ë¥¼ ë§ì¶”ëŠ” ê²ƒì´ ëª©í‘œë‹¤
 
         if (string.IsNullOrWhiteSpace(name))
         {
@@ -259,25 +259,25 @@ public class PokedexService : MonoBehaviour
 
         string n = name.Trim();
 
-        //¸Ş°¡
-        if (n.Contains("¸Ş°¡", StringComparison.OrdinalIgnoreCase))
+        //ë©”ê°€
+        if (n.Contains("ë©”ê°€", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        //¸®ÀüÆû(ÇÁ·ÎÁ§Æ®¿¡¼­ ¾²´Â Ç¥±â ±âÁØÀ¸·Î Å°¿öµå¸¸ È®Àå °¡´É)
-        if (n.Contains("°¡¶ó¸£", StringComparison.OrdinalIgnoreCase) ||
-           n.Contains("È÷½ºÀÌ", StringComparison.OrdinalIgnoreCase) ||
-           n.Contains("¾Ë·Î¶ó", StringComparison.OrdinalIgnoreCase) ||
-           n.Contains("ÆÈµ¥¾Æ", StringComparison.OrdinalIgnoreCase) ||
-           n.Contains("¸®Àü", StringComparison.OrdinalIgnoreCase))
+        //ë¦¬ì „í¼(í”„ë¡œì íŠ¸ì—ì„œ ì“°ëŠ” í‘œê¸° ê¸°ì¤€ìœ¼ë¡œ í‚¤ì›Œë“œë§Œ í™•ì¥ ê°€ëŠ¥)
+        if (n.Contains("ê°€ë¼ë¥´", StringComparison.OrdinalIgnoreCase) ||
+           n.Contains("íˆìŠ¤ì´", StringComparison.OrdinalIgnoreCase) ||
+           n.Contains("ì•Œë¡œë¼", StringComparison.OrdinalIgnoreCase) ||
+           n.Contains("íŒ”ë°ì•„", StringComparison.OrdinalIgnoreCase) ||
+           n.Contains("ë¦¬ì „", StringComparison.OrdinalIgnoreCase))
         {
             return true;
         }
 
-        //±âÅ¸ Æû/Æ¯¼ö Ç¥±â
-        if (n.Contains("¿À¸®Áø", StringComparison.OrdinalIgnoreCase) ||
-           n.Contains("Æû", StringComparison.OrdinalIgnoreCase) ||
+        //ê¸°íƒ€ í¼/íŠ¹ìˆ˜ í‘œê¸°
+        if (n.Contains("ì˜¤ë¦¬ì§„", StringComparison.OrdinalIgnoreCase) ||
+           n.Contains("í¼", StringComparison.OrdinalIgnoreCase) ||
            n.Contains("(", StringComparison.OrdinalIgnoreCase) ||
            n.Contains(")", StringComparison.OrdinalIgnoreCase))
         {

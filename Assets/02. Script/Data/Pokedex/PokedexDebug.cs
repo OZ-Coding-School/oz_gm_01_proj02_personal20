@@ -1,42 +1,57 @@
+using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 
 /*
-PokedexDebug´Â¾À/¿ÀºêÁ§Æ®¿¡ºÙ´ÂMonoBehaviourÄÄÆ÷³ÍÆ®´Ù.
--µ¥ÀÌÅÍÅ×ÀÌºí/ScriptableObject¸¦ÀĞ¾î·±Å¸ÀÓÁ¶È¸°¡°¡´ÉÇÏµµ·ÏÃÊ±âÈ­ÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
--Update¿¡¼­GCÀ¯¹ßÆĞÅÏÀ»ÇÇÇÑ´Ù.
+PokedexDebugëŠ”ë„ê°ì„œë¹„ìŠ¤ì˜ì¡°íšŒê²°ê³¼ë¥¼ì½˜ì†”ë¡œí™•ì¸í•˜ê¸°ìœ„í•œë””ë²„ê·¸ì»´í¬ë„ŒíŠ¸ë‹¤.
+-GameManagerì˜PokedexServiceì´ˆê¸°í™”ì™„ë£Œë¥¼ëŒ€ê¸°í•œë’¤ì¡°íšŒí•œë‹¤.
+-íŠ¹ì •Noì˜ì—”íŠ¸ë¦¬ë¦¬ìŠ¤íŠ¸/ê¸°ë³¸í¼ì„ì¶œë ¥í•œë‹¤.
 */
 public class PokedexDebug : MonoBehaviour
 {
-    [SerializeField] private int testNo = 6;//È®ÀÎÇÒ µµ°¨¹øÈ£
+    [SerializeField] private int testNo = 6;
 
-    private void Start()
+    private IEnumerator Start()
     {
-        if (GameManager.Instance == null)
+        while (GameManager.Instance == null)
         {
-            Debug.LogError("GameManager.Instance°¡ ¾ø¾î.");
-            return;
+            yield return null;
+        }
+
+        while (GameManager.Instance.Pokedex == null)
+        {
+            yield return null;
+        }
+
+        while (!GameManager.Instance.Pokedex.IsInitialized)
+        {
+            yield return null;
         }
 
         IReadOnlyList<PokemonEntry> list;
-        if (!GameManager.Instance.Pokedex.TryGetAllByNo(testNo, out list))
+        if (!GameManager.Instance.Pokedex.TryGetAllByNo(testNo, out list) || list == null)
         {
-            Debug.LogWarning($"No={testNo}¸¦ Ã£Áö ¸øÇß¾î.");
-            return;
+            Debug.LogWarning($"//PokedexDebug:No={testNo} not found");
+            yield break;
         }
 
-        Debug.Log($"No={testNo}entries={list.Count}");
+        Debug.Log($"//PokedexDebug:No={testNo} entries={list.Count}");
+
         for (int i = 0; i < list.Count; i++)
         {
-            var e = list[i];
+            PokemonEntry e = list[i];
+            if (e == null)
+            {
+                continue;
+            }
+
             Debug.Log($"[{i}]No={e.No},Name={e.Name},EvolutionCode={e.EvolutionCode},Special={e.SpecialEvolutionKind},MegaVar={e.MegaVariantIndex}");
         }
 
         PokemonEntry def;
-        if (GameManager.Instance.Pokedex.TryGetDefaultByNo(testNo, out def))
+        if (GameManager.Instance.Pokedex.TryGetDefaultByNo(testNo, out def) && def != null)
         {
-            Debug.Log($"Default->No={def.No},Name={def.Name},EvolutionCode={def.EvolutionCode}");
+            Debug.Log($"//Default No={def.No},Name={def.Name},EvolutionCode={def.EvolutionCode}");
         }
     }
 }

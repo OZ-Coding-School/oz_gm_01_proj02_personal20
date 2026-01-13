@@ -2,14 +2,13 @@ using UnityEngine;
 using static EnumData;
 
 /*
-UIScreen은큰화면UI공통베이스클래스다.
--UIManager가Register/Show/Hide를호출한다.
--씬별스크린은ScreenRegistry가자동등록후ScreenRoot로편입한다.
+UIScreen은ScreenRoot아래에배치되는큰화면UI의공통베이스다.
+-UIManager가등록후Show/Hide를호출한다.
+-씬전환/버튼입력에의해화면이교체될수있다.
 */
-public abstract class UIScreen : MonoBehaviour
+public class UIScreen : MonoBehaviour
 {
-    [Header("Identity")]
-    [SerializeField] private ScreenId screenId;//스크린아이디
+    [SerializeField] private ScreenId screenId;//스크린식별자
 
     private bool initialized;//초기화여부
 

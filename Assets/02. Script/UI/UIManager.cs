@@ -1,53 +1,35 @@
-using System;
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.SceneManagement;
 using static EnumData;
 
 /*
-UIManager는UI레이어/스택을관리하는MonoBehaviour컴포넌트다.
--UIRoot는DontDestroyOnLoad로유지된다.
--화면(UIScreen)은ScreenRoot하위에서자동등록한다(비활성포함).
--씬이바뀌면(ActiveSceneChanged)부트/로비/게임화면을자동으로선택해보여준다.
--Esc는Settings팝업토글입력이며,외부게이트조건을통과할때만허용한다.
--X/Backspace는Top팝업닫기입력이다.
+ UI 전체를 관리하는 매니저
+ - Screen: 로비/배틀HUD/결과 등 "큰 화면"(보통 1개 유지)
+ - Popup: 상점/아이템상세/레벨업 등(스택)
+ - System: 로딩 같은 시스템 UI
+ - Toast: 잠깐 뜨는 알림
+
+ 원칙
+ 1) GameManager는 "게임 상태"를 관리
+ 2) UIManager는 "보이기/숨기기/스택 관리"만 담당
 */
-[DefaultExecutionOrder(-900)]
-public sealed class UIManager : MonoBehaviour
+public class UIManager : MonoBehaviour
 {
     public static UIManager Instance { get; private set; }
 
-    [Header("Roots (UIRoot children)")]
+    [Header("Canvas Layer Roots")]
     [SerializeField] private Transform screenRoot;
     [SerializeField] private Transform popupRoot;
     [SerializeField] private Transform systemRoot;
     [SerializeField] private Transform toastRoot;
 
-    [Header("Auto Screen By SceneName (contains)")]
-    [SerializeField] private string bootSceneKey = "Boot";
-    [SerializeField] private string lobbySceneKey = "Lobby";
-    [SerializeField] private string gameSceneKey = "Game";
-    [SerializeField] private ScreenId bootScreenId = ScreenId.Boot;
-    [SerializeField] private ScreenId lobbyScreenId = ScreenId.Lobby;
-    [SerializeField] private ScreenId gameScreenId = ScreenId.Game;
+    private readonly Stack<UIScreen> screenStack = new();
+    private readonly Stack<UIPopup> popupStack = new();
 
-    [Header("GlobalInput")]
-    [SerializeField] private bool enableGlobalInput = true;
-    [SerializeField] private PopupId settingsPopupId = PopupId.Settings;
-
-    private readonly Stack<UIScreen> screenStack = new Stack<UIScreen>();
-    private readonly Stack<UIPopup> popupStack = new Stack<UIPopup>();
-
-    private readonly Dictionary<ScreenId, UIScreen> screenTable = new Dictionary<ScreenId, UIScreen>();
-    private readonly Dictionary<PopupId, UIPopup> popupTable = new Dictionary<PopupId, UIPopup>();
-
-    private Func<bool> canToggleSettings;
-
-    public Transform ScreenRoot => screenRoot;
-    public Transform PopupRoot => popupRoot;
-    public Transform SystemRoot => systemRoot;
-    public Transform ToastRoot => toastRoot;
+    private readonly Dictionary<PopupId, UIPopup> popupTable = new();
+    private readonly Dictionary<ScreenId, UIScreen> screenTable = new();
 
     private void Awake()
     {
@@ -59,238 +41,137 @@ public sealed class UIManager : MonoBehaviour
 
         Instance = this;
 
-        if (transform.root == transform)
-        {
-            DontDestroyOnLoad(gameObject);
-        }
-        else
-        {
-            DontDestroyOnLoad(transform.root.gameObject);
-        }
+        // why: UI 전체 루트를 씬 전환에도 유지
+        DontDestroyOnLoad(transform.root.gameObject);
 
-        if (screenRoot == null || popupRoot == null || systemRoot == null || toastRoot == null)
-        {
-            Debug.LogError("//UIManager roots not assigned");
-        }
-
-        SceneManager.activeSceneChanged += OnActiveSceneChanged;
-
-        AutoRegisterScreens();
-        AutoRegisterPopups();
-
-        ShowScreenForScene(SceneManager.GetActiveScene());
+        RegisterAllScreens();
+        ApplyScreenForActiveScene();
     }
 
-    private void OnDestroy()
+    private void OnEnable()
     {
-        if (Instance == this)
-        {
-            SceneManager.activeSceneChanged -= OnActiveSceneChanged;
-            Instance = null;
-        }
+        SceneManager.sceneLoaded += OnSceneLoaded;
     }
 
-    private void Update()
+    private void OnDisable()
     {
-        if (!enableGlobalInput)
-        {
-            return;
-        }
-
-        if (Input.GetKeyDown(KeyCode.Escape))
-        {
-            if (CanToggleSettingsInternal())
-            {
-                TogglePopup(settingsPopupId);
-            }
-            return;
-        }
-
-        if (Input.GetKeyDown(KeyCode.X) || Input.GetKeyDown(KeyCode.Backspace))
-        {
-            CloseTopPopup();
-        }
+        SceneManager.sceneLoaded -= OnSceneLoaded;
     }
 
-    private void OnActiveSceneChanged(Scene prev, Scene next)
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        AutoRegisterScreens();
-        AutoRegisterPopups();
-        ShowScreenForScene(next);
+        RegisterAllScreens();
+        ApplyScreenForActiveScene();
     }
 
-    public void SetSettingsGate(Func<bool> gate)
+    private void RegisterAllScreens()
     {
-        canToggleSettings = gate;
-    }
-
-    public void ClearSettingsGate()
-    {
-        canToggleSettings = null;
-    }
-
-    public bool HasAnyPopup()
-    {
-        return popupStack.Count > 0;
-    }
-
-    public Coroutine Run(IEnumerator routine)
-    {
-        if (routine == null)
-        {
-            return null;
-        }
-
-        return StartCoroutine(routine);
-    }
-
-    public void Stop(Coroutine coroutine)
-    {
-        if (coroutine == null)
-        {
-            return;
-        }
-
-        StopCoroutine(coroutine);
-    }
-
-    private bool CanToggleSettingsInternal()
-    {
-        if (canToggleSettings == null)
-        {
-            return true;
-        }
-
-        return canToggleSettings();
-    }
-
-    public void AutoRegisterScreens()
-    {
-        if (screenRoot == null)
-        {
-            return;
-        }
+        if (screenRoot == null) return;
 
         UIScreen[] screens = screenRoot.GetComponentsInChildren<UIScreen>(true);
         for (int i = 0; i < screens.Length; i++)
         {
-            UIScreen s = screens[i];
-            if (s == null)
-            {
-                continue;
-            }
-
-            RegisterScreen(s.ScreenId, s);
+            RegisterScreen(screens[i]);
         }
     }
 
-    public void AutoRegisterPopups()
-    {
-        if (popupRoot == null)
-        {
-            return;
-        }
-
-        UIPopup[] popups = popupRoot.GetComponentsInChildren<UIPopup>(true);
-        for (int i = 0; i < popups.Length; i++)
-        {
-            UIPopup p = popups[i];
-            if (p == null)
-            {
-                continue;
-            }
-
-            RegisterPopup(p.PopupId, p);
-        }
-    }
-
-    public void ShowScreenForScene(Scene scene)
-    {
-        if (!scene.IsValid())
-        {
-            return;
-        }
-
-        string name = scene.name;
-
-        if (!string.IsNullOrWhiteSpace(bootSceneKey) && name.Contains(bootSceneKey))
-        {
-            ShowScreen(bootScreenId, true);
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(lobbySceneKey) && name.Contains(lobbySceneKey))
-        {
-            ShowScreen(lobbyScreenId, true);
-            return;
-        }
-
-        if (!string.IsNullOrWhiteSpace(gameSceneKey) && name.Contains(gameSceneKey))
-        {
-            ShowScreen(gameScreenId, true);
-            return;
-        }
-    }
-
-    // ---------- Screen ----------
+    // Screen
     public void RegisterScreen(UIScreen screen)
     {
-        if (screen == null)
-        {
-            Debug.LogError("//RegisterScreen failed:screen null");
-            return;
-        }
+        if (screen == null) return;
 
-        RegisterScreen(screen.ScreenId, screen);
-    }
-
-    public void RegisterScreen(ScreenId id, UIScreen screen)
-    {
-        if (screen == null)
-        {
-            Debug.LogError($"//RegisterScreen failed:{id}");
-            return;
-        }
-
+        ScreenId id = screen.ScreenId;
         if (id == ScreenId.None)
         {
-            Debug.LogError($"//RegisterScreen failed:ScreenId None name={screen.name}");
+            Debug.LogWarning("//UIScreen ScreenId is None; skipped registration");
             return;
         }
+
+        screenTable[id] = screen;
+        screen.gameObject.SetActive(false);
 
         if (screenRoot != null && screen.transform.parent != screenRoot)
         {
             screen.transform.SetParent(screenRoot, false);
         }
-
-        if (!screenTable.ContainsKey(id))
-        {
-            screenTable.Add(id, screen);
-        }
-        else
-        {
-            screenTable[id] = screen;
-        }
-
-        screen.gameObject.SetActive(false);
     }
 
-    public void ShowScreen(ScreenId id, bool clearStack = true)
+    public void ApplyScreenForActiveScene()
     {
-        if (!screenTable.TryGetValue(id, out UIScreen screen) || screen == null)
+        CleanDeadScreens();
+
+        ScreenId target = GetScreenIdForActiveScene();
+        if (target == ScreenId.None)
         {
-            Debug.LogError($"//ShowScreen failed:not registered:{id}");
+            Debug.LogWarning($"UIManager: ScreenId.None (ActiveScene={SceneManager.GetActiveScene().name})");
             return;
         }
 
-        ShowScreen(screen, clearStack);
+        if (!screenTable.TryGetValue(target, out UIScreen screen) || screen == null)
+        {
+            Debug.LogWarning($"//등록되지않은스크린:{target}");
+            return;
+        }
+
+        ShowScreen(screen, clearStack: true);
+    }
+
+    private static string NormalizeSceneName(string s)
+    {
+        if (string.IsNullOrWhiteSpace(s)) return "";
+        // 공백/점/언더스코어 제거 후 소문자
+        return s.Replace(" ", "")
+                .Replace(".", "")
+                .Replace("_", "")
+                .ToLowerInvariant();
+    }
+
+    private ScreenId GetScreenIdForActiveScene()
+    {
+        string active = NormalizeSceneName(SceneManager.GetActiveScene().name);
+
+        string boot = NormalizeSceneName(GetSceneName(sceneType.BootScene));
+        string lobby = NormalizeSceneName(GetSceneName(sceneType.LobbyScene));
+        string game = NormalizeSceneName(GetSceneName(sceneType.GameScene));
+
+        if (!string.IsNullOrEmpty(boot) && active == boot) return ScreenId.Boot;
+        if (!string.IsNullOrEmpty(lobby) && active == lobby) return ScreenId.Lobby;
+        if (!string.IsNullOrEmpty(game) && active == game) return ScreenId.Game;
+
+        // fallback
+        if (active.Contains("bootscene")) return ScreenId.Boot;
+        if (active.Contains("lobbyscene")) return ScreenId.Lobby;
+        if (active.Contains("gamescene")) return ScreenId.Game;
+
+        return ScreenId.None;
+    }
+
+    private void CleanDeadScreens()
+    {
+        if (screenTable.Count == 0) return;
+
+        List<ScreenId> dead = null;
+        foreach (var kv in screenTable)
+        {
+            if (kv.Value != null) continue;
+            dead ??= new List<ScreenId>();
+            dead.Add(kv.Key);
+        }
+
+        if (dead == null) return;
+        for (int i = 0; i < dead.Count; i++)
+        {
+            screenTable.Remove(dead[i]);
+        }
     }
 
     public void ShowScreen(UIScreen screen, bool clearStack = true)
     {
-        if (screen == null)
+        if (screen == null) return;
+
+        if (screenRoot != null && screen.transform.parent != screenRoot)
         {
-            return;
+            screen.transform.SetParent(screenRoot, false);
         }
 
         if (clearStack)
@@ -298,10 +179,15 @@ public sealed class UIManager : MonoBehaviour
             while (screenStack.Count > 0)
             {
                 UIScreen top = screenStack.Pop();
-                if (top != null)
-                {
-                    top.Hide();
-                }
+                top?.Hide();
+            }
+        }
+        else
+        {
+            if (screenStack.Count > 0)
+            {
+                UIScreen top = screenStack.Peek();
+                top?.Hide();
             }
         }
 
@@ -309,122 +195,84 @@ public sealed class UIManager : MonoBehaviour
         screen.Show();
     }
 
-    // ---------- Popup ----------
+    // Popup(Register)
     public void RegisterPopup(UIPopup popup)
     {
-        if (popup == null)
-        {
-            Debug.LogError("//RegisterPopup failed:popup null");
-            return;
-        }
+        if (popup == null) return;
 
-        RegisterPopup(popup.PopupId, popup);
-    }
-
-    public void RegisterPopup(PopupId id, UIPopup popup)
-    {
-        if (popup == null)
-        {
-            Debug.LogError($"//RegisterPopup failed:{id}");
-            return;
-        }
-
-        if (id == PopupId.None)
-        {
-            Debug.LogError($"//RegisterPopup failed:PopupId None name={popup.name}");
-            return;
-        }
+        PopupId id = popup.PopupId;
+        popupTable[id] = popup;
+        popup.gameObject.SetActive(false);
 
         if (popupRoot != null && popup.transform.parent != popupRoot)
         {
             popup.transform.SetParent(popupRoot, false);
         }
-
-        if (!popupTable.ContainsKey(id))
-        {
-            popupTable.Add(id, popup);
-        }
-        else
-        {
-            popupTable[id] = popup;
-        }
-
-        popup.gameObject.SetActive(false);
     }
 
+    // Popup(Open)
     public void ShowPopup(PopupId id)
     {
-        if (!popupTable.TryGetValue(id, out UIPopup popup) || popup == null)
+        if (!popupTable.TryGetValue(id, out UIPopup popup))
         {
-            Debug.LogError($"//ShowPopup failed:not registered:{id}");
+            Debug.LogError($"//등록되지않은팝업:{id}");
             return;
         }
+
+        if (popup == null) return;
+        if (popupStack.Contains(popup)) return;
 
         popupStack.Push(popup);
         popup.Open();
     }
 
-    public void TogglePopup(PopupId id)
-    {
-        if (popupStack.Count > 0)
-        {
-            UIPopup top = popupStack.Peek();
-            if (top != null && top.PopupId == id)
-            {
-                CloseTopPopup();
-                return;
-            }
-        }
-
-        ShowPopup(id);
-    }
-
+    // Popup(Close)
     public void CloseTopPopup()
     {
-        if (popupStack.Count == 0)
-        {
-            return;
-        }
+        if (popupStack.Count == 0) return;
 
         UIPopup top = popupStack.Pop();
-        if (top == null)
-        {
-            return;
-        }
-
-        top.Close();
+        top?.Close();
     }
 
-    public void CloseAllPopup()
+    public void CloseAllPopups()
     {
         while (popupStack.Count > 0)
         {
             UIPopup top = popupStack.Pop();
-            if (top != null)
-            {
-                top.Close();
-            }
+            top?.Close();
         }
     }
 
-    // ---------- System/Toast ----------
-    public void AdoptToSystemRoot(Transform t)
+    // System
+    public void AttachSystemUI(MonoBehaviour systemUI)
     {
-        if (t == null || systemRoot == null)
-        {
-            return;
-        }
+        if (systemUI == null) return;
+        if (systemRoot == null) return;
 
-        t.SetParent(systemRoot, false);
+        systemUI.transform.SetParent(systemRoot, false);
     }
 
-    public void AdoptToToastRoot(Transform t)
+    // Toast
+    public void ShowToast(MonoBehaviour toastUI)
     {
-        if (t == null || toastRoot == null)
-        {
-            return;
-        }
+        if (toastUI == null) return;
+        if (toastRoot == null) return;
 
-        t.SetParent(toastRoot, false);
+        toastUI.transform.SetParent(toastRoot, false);
+        toastUI.gameObject.SetActive(true);
+    }
+
+    // 코루틴 러너
+    public Coroutine Run(IEnumerator routine)
+    {
+        if (routine == null) return null;
+        return StartCoroutine(routine);
+    }
+
+    public void Stop(Coroutine coroutine)
+    {
+        if (coroutine == null) return;
+        StopCoroutine(coroutine);
     }
 }

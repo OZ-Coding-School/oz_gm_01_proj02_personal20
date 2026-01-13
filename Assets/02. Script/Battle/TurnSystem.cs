@@ -3,10 +3,10 @@ using System.Collections.Generic;
 using UnityEngine;
 
 /*
-TurnSystem´Â¾À/¿ÀºêÁ§Æ®¿¡ºÙ´ÂMonoBehaviourÄÄÆ÷³ÍÆ®´Ù.
--ÀüÅõ¿¡¼­ÇÊ¿äÇÑµ¥ÀÌÅÍ¸¦¸ðÀ¸°í,ÅÏÃ³¸®/±â¼ú½ÇÇàÈå¸§À»±¸¼ºÇÑ´Ù.
--ÄÄÆ÷³ÍÆ®ÂüÁ¶´ÂAwake¿¡¼­Ä³½ÌÇÏ°í,nullÀ»°¡µåÇÑ´Ù.
--Update¿¡¼­GCÀ¯¹ßÆÐÅÏÀ»ÇÇÇÑ´Ù.
+TurnSystemëŠ”ì”¬/ì˜¤ë¸Œì íŠ¸ì—ë¶™ëŠ”MonoBehaviourì»´í¬ë„ŒíŠ¸ë‹¤.
+-ì „íˆ¬ì—ì„œí•„ìš”í•œë°ì´í„°ë¥¼ëª¨ìœ¼ê³ ,í„´ì²˜ë¦¬/ê¸°ìˆ ì‹¤í–‰íë¦„ì„êµ¬ì„±í•œë‹¤.
+-ì»´í¬ë„ŒíŠ¸ì°¸ì¡°ëŠ”Awakeì—ì„œìºì‹±í•˜ê³ ,nullì„ê°€ë“œí•œë‹¤.
+-Updateì—ì„œGCìœ ë°œíŒ¨í„´ì„í”¼í•œë‹¤.
 */
 public class TurnSystem : MonoBehaviour
 {
