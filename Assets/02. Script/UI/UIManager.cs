@@ -275,4 +275,29 @@ public class UIManager : MonoBehaviour
         if (coroutine == null) return;
         StopCoroutine(coroutine);
     }
+
+    public void Back()
+    {
+        //팝업이 있으면 팝업부터 한단계 뒤로
+        if (popupStack.Count > 0)
+        {
+            CloseTopPopup();
+            return;
+        }
+
+        //스크린 스택이 2개 이상이면 이전 스크린으로
+        if (screenStack.Count > 1)
+        {
+            UIScreen current = screenStack.Pop();
+            current?.Hide();
+
+            UIScreen prev = screenStack.Peek();
+            prev?.Show();
+            return;
+        }
+
+        //여기까지 오면 더이상 뒤로갈게 없음
+        //원하면 여기서 종료확인팝업/로비로 이동 같은 처리 가능
+        //Debug.Log("//Back: no more history");
+    }
 }
