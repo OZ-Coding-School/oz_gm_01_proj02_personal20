@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /*
 SkillExecutor는Battle영역에서기술실행을담당하는로직컴포넌트다.
@@ -18,15 +18,16 @@ public sealed class SkillExecutor : MonoBehaviour
 
         if (attacker.IsFainted)
         {
-            log.Push(attacker.DisplayName + "은(는) 기절해 행동할 수 없다!");
+            log.Push($"{attacker.DisplayName}은(는)\n기절해 행동할 수 없다!");
             return;
         }
 
-        log.Push(attacker.DisplayName + "의 " + skill.SkillName + "!");
+        // 1) 기술 사용(1~2줄 세트 유지)
+        log.Push($"{attacker.DisplayName}의 {skill.SkillName}!\n");
 
         if (!Roll(skill.Accuracy))
         {
-            log.Push("하지만 빗나갔다!");
+            log.Push("하지만\n빗나갔다!");
             return;
         }
 
@@ -38,11 +39,12 @@ public sealed class SkillExecutor : MonoBehaviour
 
         int damage = ComputeDamage(attacker, defender, skill);
         defender.ApplyDamage(damage);
-        log.Push(defender.DisplayName + "에게 " + damage + "의 데미지!");
+
+        log.Push($"{defender.DisplayName}에게\n{damage}의 데미지!");
 
         if (defender.IsFainted)
         {
-            log.Push(defender.DisplayName + "은(는) 쓰러졌다!");
+            log.Push($"{defender.DisplayName}이/가\n쓰러졌다!");
             return;
         }
 
@@ -63,11 +65,10 @@ public sealed class SkillExecutor : MonoBehaviour
             ? defender.GetStat(BattleTypes.BattleStat.Defense)
             : defender.GetStat(BattleTypes.BattleStat.SpDefense);
 
-        //ComputeDamage는기본공식만쓴다(타입상성/치명타/난수는추가가능).
         int a = (2 * level) / 5 + 2;
         int baseDamage = ((a * power * atk) / Mathf.Max(1, def)) / 50 + 2;
 
-        float random = Random.Range(0.85f, 1.01f);
+        float random = UnityEngine.Random.Range(0.85f, 1.01f);
         int finalDamage = Mathf.Max(1, Mathf.RoundToInt(baseDamage * random));
         return finalDamage;
     }
@@ -83,7 +84,8 @@ public sealed class SkillExecutor : MonoBehaviour
             if (applied != 0)
             {
                 any = true;
-                log.Push(defender.DisplayName + "의 " + GetStatName(skill.StageTargetStat) + " 랭크가 " + (applied > 0 ? "올랐다!" : "내려갔다!"));
+                string dir = applied > 0 ? "올랐다!" : "내려갔다!";
+                log.Push($"{defender.DisplayName}의 {GetStatName(skill.StageTargetStat)}\n랭크가 {dir}");
             }
         }
 
@@ -92,18 +94,18 @@ public sealed class SkillExecutor : MonoBehaviour
             if (defender.ApplyStatus(skill.ApplyStatus))
             {
                 any = true;
-                log.Push(defender.DisplayName + "은(는) " + GetStatusName(skill.ApplyStatus) + " 상태가 되었다!");
+                log.Push($"{defender.DisplayName}은(는)\n{GetStatusName(skill.ApplyStatus)} 상태가 되었다!");
             }
             else
             {
                 any = true;
-                log.Push("하지만 효과가 없었다!");
+                log.Push("하지만\n효과가 없었다!");
             }
         }
 
         if (!any)
         {
-            log.Push("하지만 아무 일도 일어나지 않았다!");
+            log.Push("하지만\n아무 일도 일어나지 않았다!");
         }
     }
 
@@ -115,7 +117,8 @@ public sealed class SkillExecutor : MonoBehaviour
             int applied = defender.ApplyStageDelta(skill.StageTargetStat, skill.StageDelta);
             if (applied != 0)
             {
-                log.Push(defender.DisplayName + "의 " + GetStatName(skill.StageTargetStat) + " 랭크가 " + (applied > 0 ? "올랐다!" : "내려갔다!"));
+                string dir = applied > 0 ? "올랐다!" : "내려갔다!";
+                log.Push($"{defender.DisplayName}의 {GetStatName(skill.StageTargetStat)}\n랭크가 {dir}");
             }
         }
 
@@ -123,7 +126,7 @@ public sealed class SkillExecutor : MonoBehaviour
         {
             if (defender.ApplyStatus(skill.ApplyStatus))
             {
-                log.Push(defender.DisplayName + "은(는) " + GetStatusName(skill.ApplyStatus) + " 상태가 되었다!");
+                log.Push($"{defender.DisplayName}은(는)\n{GetStatusName(skill.ApplyStatus)} 상태가 되었다!");
             }
         }
     }
@@ -134,10 +137,9 @@ public sealed class SkillExecutor : MonoBehaviour
         int c = Mathf.Clamp(chancePercent, 0, 100);
         if (c <= 0) return false;
         if (c >= 100) return true;
-        return Random.Range(1, 101) <= c;
+        return UnityEngine.Random.Range(1, 101) <= c;
     }
 
-    //GetStatName은표시용이름을반환한다.
     private string GetStatName(BattleTypes.BattleStat stat)
     {
         switch (stat)
@@ -151,7 +153,6 @@ public sealed class SkillExecutor : MonoBehaviour
         }
     }
 
-    //GetStatusName은표시용이름을반환한다.
     private string GetStatusName(BattleTypes.StatusAilment ailment)
     {
         switch (ailment)

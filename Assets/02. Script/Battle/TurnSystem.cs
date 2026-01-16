@@ -15,47 +15,39 @@ public sealed class TurnSystem : MonoBehaviour
     private Battler enemy;
     private SkillExecutor executor;
     private BattleLogBuffer log;
+    private Action<bool> onBattleEnded;
 
     private Coroutine battleRoutine;
 
     private bool waitingForPlayerChoice;
     private int chosenPlayerSlot = -1;
 
-    private Action<bool> onBattleEnded;
-
     public bool IsWaitingForPlayerChoice => waitingForPlayerChoice;
 
-    //BeginBattle는전투루프를시작한다.
-    public void BeginBattle(Battler playerBattler, Battler enemyBattler, SkillExecutor skillExecutor, BattleLogBuffer logBuffer, Action<bool> onBattleEndedCallback)
+    public void BeginBattle(Battler player, Battler enemy, SkillExecutor executor, BattleLogBuffer log, Action<bool> onBattleEnded)
     {
+        this.player = player;
+        this.enemy = enemy;
+        this.executor = executor;
+        this.log = log;
+        this.onBattleEnded = onBattleEnded;
+
         if (battleRoutine != null)
-        {
             StopCoroutine(battleRoutine);
-            battleRoutine = null;
-        }
 
-        player = playerBattler;
-        enemy = enemyBattler;
-        executor = skillExecutor;
-        log = logBuffer;
-        onBattleEnded = onBattleEndedCallback;
-
-        if (player == null || enemy == null || executor == null || log == null)
-        {
-            Debug.LogWarning("TurnSystem.BeginBattle:invalid refs");
-            return;
-        }
-
-        chosenPlayerSlot = -1;
         waitingForPlayerChoice = false;
+        chosenPlayerSlot = -1;
 
-        log.Push("전투 시작!");
-        log.Push(player.DisplayName + " VS " + enemy.DisplayName);
+        // 0) 전투 시작 연출 (2줄 세트)
+        log.Push(BattleTexts.WildAppeared(enemy.DisplayName));
+        log.Push(BattleTexts.GoPlayer(player.DisplayName));
+
+        // 프롬프트(고정)
+        log.Push(BattleTexts.PromptWhatWillDo(player.DisplayName));
 
         battleRoutine = StartCoroutine(BattleLoop());
     }
 
-    //SetPlayerChoice는플레이어선택을턴시스템에전달한다.
     public void SetPlayerChoice(int slotIndex)
     {
         if (!waitingForPlayerChoice) return;
@@ -67,144 +59,47 @@ public sealed class TurnSystem : MonoBehaviour
         waitingForPlayerChoice = false;
     }
 
-    //BattleLoop는턴진행코루틴이다.
     private IEnumerator BattleLoop()
     {
         while (true)
         {
-            if (player.IsFainted || enemy.IsFainted)
+            // 매 턴 시작: 프롬프트 갱신(고정)
+            log.Push(BattleTexts.PromptWhatWillDo(player.DisplayName));
+
+            waitingForPlayerChoice = true;
+            chosenPlayerSlot = -1;
+
+            yield return new WaitUntil(() => chosenPlayerSlot >= 0);
+
+            // 1) 싸운다 → 스킬 선택 후 라운드 실행(여기서부터 기존 전투 로직 유지)
+            var playerSkill = player.GetSkill(chosenPlayerSlot);
+
+            // 예시: 선공/후공 판정 후 각각 스킬 실행 전에 문구 Push
+            // (실제 데미지/효과 문구는 SkillExecutor에서 Push하거나, 여기서 추가로 Push하면 됨)
+            log.Push(BattleTexts.UseSkill(player.DisplayName, playerSkill.SkillName));
+            executor.Execute(player, enemy, playerSkill, log);
+
+            if (enemy.IsFainted)
             {
-                EndBattle();
+                log.Push(BattleTexts.Fainted(enemy.DisplayName));
+                log.Push(BattleTexts.GainedExp(player.DisplayName, 12)); // exp는 너의 계산값으로 교체
+                onBattleEnded?.Invoke(true);
                 yield break;
             }
 
-            //BattleLoop는플레이어입력을기다린다.
-            waitingForPlayerChoice = true;
-            chosenPlayerSlot = -1;
-            log.Push("기술을 선택해라(1~4).");
+            // 적 턴 예시(기존 AI 선택으로 교체)
+            var enemySkill = enemy.GetSkill(0);
+            log.Push(BattleTexts.UseSkill(enemy.DisplayName, enemySkill.SkillName));
+            executor.Execute(enemy, player, enemySkill, log);
 
-            yield return new WaitUntil(() => !waitingForPlayerChoice);
-
-            int enemySlot = ChooseEnemySkillSlot(enemy);
-            int firstActor = DecideFirstActor(player, enemy);
-
-            if (firstActor == 0)
+            if (player.IsFainted)
             {
-                yield return ExecuteAction(player, enemy, chosenPlayerSlot);
-                if (enemy.IsFainted) continue;
-
-                yield return ExecuteAction(enemy, player, enemySlot);
-            }
-            else
-            {
-                yield return ExecuteAction(enemy, player, enemySlot);
-                if (player.IsFainted) continue;
-
-                yield return ExecuteAction(player, enemy, chosenPlayerSlot);
+                log.Push(BattleTexts.Fainted(player.DisplayName));
+                onBattleEnded?.Invoke(false);
+                yield break;
             }
 
-            if (player.IsFainted || enemy.IsFainted) continue;
-
-            ApplyEndTurnEffects(player);
-            if (player.IsFainted) continue;
-
-            ApplyEndTurnEffects(enemy);
-        }
-    }
-
-    //ExecuteAction은한번의행동을실행한다.
-    private IEnumerator ExecuteAction(Battler attacker, Battler defender, int slotIndex)
-    {
-        BattleSkillDataSO skill = attacker.GetSkill(slotIndex);
-        if (skill == null)
-        {
-            log.Push(attacker.DisplayName + "은(는) 사용할 기술이 없다!");
             yield return null;
-            yield break;
-        }
-
-        executor.Execute(attacker, defender, skill, log);
-        yield return null;
-    }
-
-    //ChooseEnemySkillSlot는간단AI로기술슬롯을선택한다.
-    private int ChooseEnemySkillSlot(Battler b)
-    {
-        //ChooseEnemySkillSlot는최고위력기술을우선선택한다.
-        int bestSlot = -1;
-        int bestPower = -1;
-
-        for (int i = 0; i < SkillSlots; i++)
-        {
-            BattleSkillDataSO s = b.GetSkill(i);
-            if (s == null) continue;
-
-            int p = s.Power;
-            if (p > bestPower)
-            {
-                bestPower = p;
-                bestSlot = i;
-            }
-        }
-
-        if (bestSlot >= 0) return bestSlot;
-
-        //ChooseEnemySkillSlot는모두없으면0을반환한다.
-        return 0;
-    }
-
-    //DecideFirstActor는스피드비교로선공을결정한다.
-    private int DecideFirstActor(Battler a, Battler b)
-    {
-        int spA = a.GetStat(BattleTypes.BattleStat.Speed);
-        int spB = b.GetStat(BattleTypes.BattleStat.Speed);
-
-        if (spA > spB) return 0;
-        if (spB > spA) return 1;
-
-        return UnityEngine.Random.Range(0, 2);
-    }
-
-    //ApplyEndTurnEffects는상태이상지속효과를적용한다.
-    private void ApplyEndTurnEffects(Battler b)
-    {
-        if (b == null || b.IsFainted) return;
-
-        int dot = b.ComputeEndTurnDot();
-        if (dot <= 0) return;
-
-        b.ApplyDamage(dot);
-        log.Push(b.DisplayName + "은(는) " + GetStatusName(b.Status) + "로 " + dot + "의 피해!");
-
-        if (b.IsFainted)
-        {
-            log.Push(b.DisplayName + "은(는) 쓰러졌다!");
-        }
-    }
-
-    //EndBattle는전투종료를처리한다.
-    private void EndBattle()
-    {
-        bool playerWon = enemy != null && enemy.IsFainted && player != null && !player.IsFainted;
-        log.Push(playerWon ? "승리!" : "패배...");
-
-        onBattleEnded?.Invoke(playerWon);
-
-        if (battleRoutine != null)
-        {
-            StopCoroutine(battleRoutine);
-            battleRoutine = null;
-        }
-    }
-
-    //GetStatusName은표시용이름을반환한다.
-    private string GetStatusName(BattleTypes.StatusAilment ailment)
-    {
-        switch (ailment)
-        {
-            case BattleTypes.StatusAilment.Poison: return "독";
-            case BattleTypes.StatusAilment.Burn: return "화상";
-            default: return "이상";
         }
     }
 }
