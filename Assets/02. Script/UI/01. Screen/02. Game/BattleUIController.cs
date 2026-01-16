@@ -5,32 +5,45 @@ using TMPro;
 
 public sealed class BattleUIController : MonoBehaviour
 {
-    [Header("UI Refs (UIRoot에 있는 것만 연결)")]
+    [Header("Screen Gate")]
+    [SerializeField] private GameObject gameScreenRoot; // UIRoot/ScreenRoot/Game Screen
+
+    [Header("HUD")]
     [SerializeField] private BattleLogUI battleLogUI;
+
+    [Header("Command Popup (4버튼 팝업 루트)")]
+    [SerializeField] private GameObject commandPopupRoot; // (Dim 포함 루트 추천)
     [SerializeField] private Button fightButton;
+    [SerializeField] private Button ballButton;
+    [SerializeField] private Button pokemonButton;
+    [SerializeField] private Button runButton;
 
-    [Header("Skill Popup Root (PopupRoot/Skill Popup 전체)")]
-    [SerializeField] private GameObject skillPopupRoot;
-
-    [Header("Skill Buttons")]
+    [Header("Skill Popup")]
+    [SerializeField] private GameObject skillPopupRoot; // (Dim 포함 루트)
     [SerializeField] private Button[] skillButtons = new Button[4];
     [SerializeField] private TMP_Text[] skillLabels = new TMP_Text[4];
 
+    [Header("Optional Input Owner")]
+    [SerializeField] private MonoBehaviour menuButtonController; // MenuButtonController 있으면 드래그
+
+    [Header("Keys")]
+    [SerializeField] private KeyCode confirmKey1 = KeyCode.Return;
+    [SerializeField] private KeyCode confirmKey2 = KeyCode.Z;
+
     [Header("Debug")]
-    [SerializeField] private bool debugLogs = true;
+    [SerializeField] private bool debugLogs;
 
     private BattleManager battleManager;
     private TurnSystem turnSystem;
 
     private void Awake()
     {
-        if (fightButton == null && debugLogs) Debug.LogWarning("[BattleUI] fightButton 미연결");
-        if (skillPopupRoot == null && debugLogs) Debug.LogWarning("[BattleUI] skillPopupRoot 미연결");
-
         if (battleLogUI == null) battleLogUI = FindObjectOfType<BattleLogUI>(true);
 
-        if (fightButton != null)
-            fightButton.onClick.AddListener(OnClickFight);
+        if (fightButton != null) fightButton.onClick.AddListener(OnClickFight);
+        if (ballButton != null) ballButton.onClick.AddListener(OnClickBall);
+        if (pokemonButton != null) pokemonButton.onClick.AddListener(OnClickPokemon);
+        if (runButton != null) runButton.onClick.AddListener(OnClickRun);
 
         for (int i = 0; i < skillButtons.Length; i++)
         {
@@ -39,13 +52,14 @@ public sealed class BattleUIController : MonoBehaviour
                 skillButtons[i].onClick.AddListener(() => OnClickSkill(slot));
         }
 
-        SetSkillPopupVisible(false);
+        CloseAllPopups();
     }
 
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
         TryRebindBattle();
+        ApplyGateAndMode();
     }
 
     private void OnDisable()
@@ -54,19 +68,48 @@ public sealed class BattleUIController : MonoBehaviour
         UnbindLog();
         battleManager = null;
         turnSystem = null;
+        CloseAllPopups();
     }
 
-    private void OnSceneLoaded(Scene scene, LoadSceneMode mode) => TryRebindBattle();
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
+    {
+        TryRebindBattle();
+        ApplyGateAndMode();
+    }
 
     private void Update()
     {
-        bool canChoose = turnSystem != null && turnSystem.IsWaitingForPlayerChoice;
+        ApplyGateAndMode();
+        if (!IsGameScreenActive()) return;
 
-        if (fightButton != null)
-            fightButton.interactable = canChoose;
+        bool logBusy = battleLogUI != null && battleLogUI.IsBusy;
 
-        if (!canChoose && skillPopupRoot != null && skillPopupRoot.activeSelf)
-            SetSkillPopupVisible(false);
+        if (logBusy)
+        {
+            // 로그 모드: Confirm만 받기
+            if (Input.GetKeyDown(confirmKey1) || Input.GetKeyDown(confirmKey2))
+                battleLogUI.Confirm();
+
+            return;
+        }
+
+        // 커맨드/스킬 선택 가능 여부
+        bool waitingChoice = turnSystem != null && turnSystem.IsWaitingForPlayerChoice;
+
+        // 내 턴이면 커맨드 팝업 자동 오픈
+        if (waitingChoice)
+        {
+            if (!IsPopupActive(commandPopupRoot) && !IsPopupActive(skillPopupRoot))
+                SetPopupVisible(commandPopupRoot, true);
+
+            SetCommandButtonsInteractable(true);
+        }
+        else
+        {
+            // 내 턴 아니면 팝업 닫기
+            SetPopupVisible(commandPopupRoot, false);
+            SetPopupVisible(skillPopupRoot, false);
+        }
     }
 
     private void TryRebindBattle()
@@ -76,9 +119,9 @@ public sealed class BattleUIController : MonoBehaviour
         battleManager = FindObjectOfType<BattleManager>(true);
         if (battleManager == null)
         {
-            if (debugLogs) Debug.LogWarning("[BattleUI] BattleManager를 씬에서 못 찾음");
             turnSystem = null;
-            SetSkillPopupVisible(false);
+            CloseAllPopups();
+            if (debugLogs) Debug.LogWarning("[BattleUI] BattleManager not found.");
             return;
         }
 
@@ -86,10 +129,43 @@ public sealed class BattleUIController : MonoBehaviour
             ? battleManager.TurnSystem
             : battleManager.GetComponent<TurnSystem>();
 
-        if (debugLogs) Debug.Log($"[BattleUI] Rebind OK: BM={battleManager.name}, TS={(turnSystem != null ? "OK" : "NULL")}");
-
         BindLog();
         RefreshSkillLabels();
+
+        if (debugLogs) Debug.Log($"[BattleUI] Rebind OK: BM={battleManager.name}, TS={(turnSystem != null ? "OK" : "NULL")}");
+    }
+
+    private void ApplyGateAndMode()
+    {
+        if (!IsGameScreenActive())
+        {
+            CloseAllPopups();
+            SetMenuInputEnabled(false);
+            return;
+        }
+
+        bool logBusy = battleLogUI != null && battleLogUI.IsBusy;
+
+        // 로그가 뜨면 모든 팝업 닫고 입력 잠금
+        if (logBusy)
+        {
+            SetPopupVisible(commandPopupRoot, false);
+            SetPopupVisible(skillPopupRoot, false);
+            SetMenuInputEnabled(false);
+            return;
+        }
+
+        // 로그가 없으면 입력 가능(커맨드/스킬은 Update에서 결정)
+        SetMenuInputEnabled(true);
+    }
+
+    private bool IsGameScreenActive()
+    {
+        if (gameScreenRoot != null)
+            return gameScreenRoot.activeInHierarchy;
+
+        // fallback
+        return battleManager != null;
     }
 
     private void BindLog()
@@ -105,31 +181,49 @@ public sealed class BattleUIController : MonoBehaviour
         battleManager.LogBuffer.OnLinePushed -= battleLogUI.Push;
     }
 
+    private void SetMenuInputEnabled(bool enabled)
+    {
+        if (menuButtonController != null)
+            menuButtonController.enabled = enabled;
+    }
+
     private void OnClickFight()
     {
-        bool canChoose = turnSystem != null && turnSystem.IsWaitingForPlayerChoice;
-
-        if (debugLogs)
-        {
-            Debug.Log($"[BattleUI] Fight Clicked. canChoose={canChoose}, popupNull={(skillPopupRoot == null)}");
-            if (skillPopupRoot != null)
-                Debug.Log($"[BattleUI] popup parent active={skillPopupRoot.transform.parent?.gameObject.activeInHierarchy}");
-        }
-
-        if (!canChoose) return;
+        if (turnSystem == null || !turnSystem.IsWaitingForPlayerChoice) return;
+        if (battleLogUI != null && battleLogUI.IsBusy) return;
 
         RefreshSkillLabels();
-        SetSkillPopupVisible(true);
+        SetPopupVisible(commandPopupRoot, false);
+        SetPopupVisible(skillPopupRoot, true);
+    }
+
+    private void OnClickBall()
+    {
+        if (battleManager?.LogBuffer != null)
+            battleManager.LogBuffer.Push("아직 볼 기능은 준비 중!");
+    }
+
+    private void OnClickPokemon()
+    {
+        if (battleManager?.LogBuffer != null)
+            battleManager.LogBuffer.Push("아직 포켓몬 교체 기능은 준비 중!");
+    }
+
+    private void OnClickRun()
+    {
+        if (battleManager?.LogBuffer != null)
+            battleManager.LogBuffer.Push("도망 기능은 준비 중!");
     }
 
     private void OnClickSkill(int slotIndex)
     {
-        if (battleManager == null) return;
         if (turnSystem == null || !turnSystem.IsWaitingForPlayerChoice) return;
+        if (battleLogUI != null && battleLogUI.IsBusy) return;
+        if (battleManager == null) return;
         if (battleManager.GetPlayerSkill(slotIndex) == null) return;
 
         battleManager.SelectSkillSlot(slotIndex);
-        SetSkillPopupVisible(false);
+        SetPopupVisible(skillPopupRoot, false);
     }
 
     private void RefreshSkillLabels()
@@ -144,9 +238,41 @@ public sealed class BattleUIController : MonoBehaviour
         }
     }
 
-    private void SetSkillPopupVisible(bool visible)
+    private void SetCommandButtonsInteractable(bool interactable)
     {
-        if (skillPopupRoot != null)
-            skillPopupRoot.SetActive(visible);
+        if (fightButton != null) fightButton.interactable = interactable;
+        if (ballButton != null) ballButton.interactable = interactable;
+        if (pokemonButton != null) pokemonButton.interactable = interactable;
+        if (runButton != null) runButton.interactable = interactable;
+    }
+
+    private void CloseAllPopups()
+    {
+        SetPopupVisible(commandPopupRoot, false);
+        SetPopupVisible(skillPopupRoot, false);
+        SetCommandButtonsInteractable(false);
+    }
+
+    private bool IsPopupActive(GameObject root)
+    {
+        return root != null && root.activeInHierarchy;
+    }
+
+    private void SetPopupVisible(GameObject root, bool visible)
+    {
+        if (root == null) return;
+
+        root.SetActive(visible);
+
+        if (visible)
+            root.transform.SetAsLastSibling();
+
+        var cg = root.GetComponent<CanvasGroup>();
+        if (cg != null)
+        {
+            cg.alpha = visible ? 1f : 0f;
+            cg.interactable = visible;
+            cg.blocksRaycasts = visible;
+        }
     }
 }

@@ -1,163 +1,150 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
-using System.Text;
 using UnityEngine;
+using UnityEngine.UI;
 using TMPro;
 
-public class BattleLogUI : MonoBehaviour
+public sealed class BattleLogUI : MonoBehaviour
 {
-    [Header("UI")]
+    [Header("Single Text (필수)")]
     [SerializeField] private TMP_Text logText;
-    [SerializeField] private GameObject continueHint;//선택(없어도됨)
 
-    [Header("Output")]
-    [SerializeField] private int maxLines = 2;
-    [SerializeField] private float typeSpeed = 0.02f;//0이면 즉시 출력
-    [SerializeField] private bool addNewLineBetweenMessages = true;
+    [Header("Continue (▼) UI (표시용)")]
+    [SerializeField] private GameObject continueIcon;  // ▼ 아이콘
+    [SerializeField] private Button continueButton;    // 있으면 클릭 막기용(없어도 됨)
+
+    [Header("Timing")]
+    [SerializeField] private float minIntervalSeconds = 0.2f;
+
+    [Header("Confirm Keys (▼ 있을 때만 동작)")]
+    [SerializeField] private KeyCode[] confirmKeys = { KeyCode.Return, KeyCode.Z, KeyCode.Space };
 
     private readonly Queue<string> queue = new();
-    private readonly List<string> lines = new();
     private Coroutine routine;
 
-    private bool isTyping;
-    private string currentMessage;
+    private bool waitingForConfirm;
+    private bool promptActive;
+    private string promptText = string.Empty;
+
+    // 블로킹 로그(▼ 대기)가 진행 중이면 true. PROMPT는 busy 아님.
+    public bool IsBusy => waitingForConfirm || queue.Count > 0;
 
     private void Awake()
     {
-        if (continueHint != null) continueHint.SetActive(false);
-        RefreshText();
+        if (logText == null)
+            logText = GetComponent<TMP_Text>() ?? GetComponentInChildren<TMP_Text>(true);
+
+        if (continueButton != null)
+            continueButton.interactable = false; // 클릭 진행 금지
+
+        SetContinueVisible(false);
+        Render(string.Empty);
     }
 
-    public void Push(string message)
+    private void Update()
     {
-        if (string.IsNullOrEmpty(message)) return;
+        if (!waitingForConfirm) return;
 
-        queue.Enqueue(message);
+        if (Input.anyKeyDown)
+            Debug.Log("[BattleLogUI] anyKeyDown detected");
 
+        for (int i = 0; i < confirmKeys.Length; i++)
+        {
+            if (Input.GetKeyDown(confirmKeys[i]))
+            {
+                Debug.Log($"[BattleLogUI] Confirm key: {confirmKeys[i]}");
+                waitingForConfirm = false;
+                SetContinueVisible(false);
+                return;
+            }
+        }
+    }
+
+    private void OnDisable()
+    {
+        routine = null;
+        waitingForConfirm = false;
+    }
+
+    // 규칙:
+    // - "[PROMPT]"로 시작: 프롬프트(▼ 없이 고정)
+    // - 그 외: 블로킹 메시지(▼ + 키 입력 필요)
+    // - 줄바꿈(\n) 그대로 사용 (2줄 세트는 문자열에서 관리)
+    public void Push(string raw)
+    {
+        if (string.IsNullOrWhiteSpace(raw)) return;
+
+        if (raw.StartsWith("[PROMPT]"))
+        {
+            promptText = raw.Substring("[PROMPT]".Length);
+            promptActive = true;
+
+            if (!IsBusy)
+                Render(promptText);
+
+            return;
+        }
+
+        queue.Enqueue(raw);
+
+        if (!isActiveAndEnabled) return;
         if (routine == null)
             routine = StartCoroutine(CoConsume());
     }
 
-    //확인키(Z/Enter)에서 호출
+    // 외부(버튼/입력 시스템)에서 호출할 수도 있음
     public void Confirm()
     {
-        //타이핑중이면 스킵
-        if (isTyping)
-        {
-            StopTypingAndFlush();
-            return;
-        }
+        if (!waitingForConfirm) return;
+        waitingForConfirm = false;
+        SetContinueVisible(false);
+    }
 
-        //다음 메시지 진행(큐가 비어있으면 힌트 끄기)
-        if (queue.Count == 0)
-        {
-            if (continueHint != null) continueHint.SetActive(false);
-        }
+    public void ClearPrompt()
+    {
+        promptActive = false;
+        promptText = string.Empty;
+
+        if (!IsBusy)
+            Render(string.Empty);
     }
 
     private IEnumerator CoConsume()
     {
         while (queue.Count > 0)
         {
-            currentMessage = queue.Dequeue();
+            string msg = queue.Dequeue();
 
-            if (typeSpeed <= 0f)
-            {
-                AppendMessage(currentMessage);
-                yield return null;
-            }
-            else
-            {
-                yield return CoType(currentMessage);
-            }
+            Render(msg);
+            SetContinueVisible(false);
 
-            //메시지 하나 끝나면 힌트 표시(원하면 자동 진행 안 하고 Confirm 기다리게 할 수도 있음)
-            if (continueHint != null) continueHint.SetActive(queue.Count > 0);
+            if (minIntervalSeconds > 0f)
+                yield return new WaitForSeconds(minIntervalSeconds);
 
-            //자동으로 계속 진행하고 싶으면 아래 줄 유지
-            //Confirm 기다리게 하고 싶으면 while로 입력 대기 넣으면 됨
+            waitingForConfirm = true;
+            SetContinueVisible(true);
+
+            yield return new WaitUntil(() => !waitingForConfirm);
             yield return null;
         }
 
         routine = null;
-        if (continueHint != null) continueHint.SetActive(false);
-    }
 
-    private IEnumerator CoType(string message)
-    {
-        isTyping = true;
-
-        //타이핑은 "마지막 줄"로 출력되게 처리
-        int targetLineIndex = AddEmptyLineForTyping();
-        var sb = new StringBuilder();
-
-        for (int i = 0; i < message.Length; i++)
-        {
-            sb.Append(message[i]);
-            lines[targetLineIndex] = sb.ToString();
-            ClampLines();
-            RefreshText();
-            yield return new WaitForSeconds(typeSpeed);
-        }
-
-        isTyping = false;
-    }
-
-    private void StopTypingAndFlush()
-    {
-        //현재 타이핑중인 줄을 완성된 메시지로 확정
-        isTyping = false;
-
-        //타이핑 코루틴은 CoConsume 안에서 돌고있어서 StopCoroutine을 직접 안 해도 되지만
-        //즉시 반영을 위해 현재 메시지를 강제로 확정
-        ReplaceLastLine(currentMessage);
-        RefreshText();
-    }
-
-    private void AppendMessage(string message)
-    {
-        if (addNewLineBetweenMessages && lines.Count > 0)
-        {
-            //빈 줄을 넣고 싶으면 여기에서 lines.Add("")
-            //지금은 maxLines가 작아서 기본은 생략 추천
-        }
-
-        lines.Add(message);
-        ClampLines();
-        RefreshText();
-    }
-
-    private int AddEmptyLineForTyping()
-    {
-        lines.Add("");
-        ClampLines();
-        RefreshText();
-        return lines.Count - 1;
-    }
-
-    private void ReplaceLastLine(string message)
-    {
-        if (lines.Count == 0)
-        {
-            lines.Add(message);
-        }
+        if (promptActive)
+            Render(promptText);
         else
-        {
-            lines[lines.Count - 1] = message;
-        }
-
-        ClampLines();
+            Render(string.Empty);
     }
 
-    private void ClampLines()
-    {
-        while (lines.Count > maxLines)
-            lines.RemoveAt(0);
-    }
-
-    private void RefreshText()
+    private void Render(string text)
     {
         if (logText == null) return;
-        logText.text = string.Join("\n", lines);
+        logText.text = text ?? string.Empty;
+    }
+
+    private void SetContinueVisible(bool visible)
+    {
+        if (continueIcon != null) continueIcon.SetActive(visible);
+        if (continueButton != null) continueButton.interactable = false;
     }
 }
