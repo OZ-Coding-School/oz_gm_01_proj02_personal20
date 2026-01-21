@@ -34,6 +34,8 @@ public sealed class BattleManager : MonoBehaviour
 
     public BattleLogBuffer LogBuffer => log;
     public TurnSystem TurnSystem => turnSystem;
+    public Battler Player => player;
+    public Battler Enemy => enemy;
 
     public BattleSkillDataSO GetPlayerSkill(int slotIndex)
     {

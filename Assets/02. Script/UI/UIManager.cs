@@ -169,6 +169,17 @@ public class UIManager : MonoBehaviour
     {
         if (screen == null) return;
 
+        // ✅ 이미 같은 스크린이 최상단이면 아무것도 하지 않음(중요)
+        if (screenStack.Count > 0)
+        {
+            UIScreen top = screenStack.Peek();
+            if (top == screen)
+            {
+                if (!screen.gameObject.activeSelf) screen.Show(); // 혹시 꺼져있으면만 켬
+                return;
+            }
+        }
+
         if (screenRoot != null && screen.transform.parent != screenRoot)
         {
             screen.transform.SetParent(screenRoot, false);

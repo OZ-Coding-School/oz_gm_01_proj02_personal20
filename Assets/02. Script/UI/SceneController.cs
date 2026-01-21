@@ -107,7 +107,7 @@ public class SceneController : MonoBehaviour
         }
 
         // 씬 전환 완료: 현재 씬에 맞는 UIScreen 적용(부트 화면 고정 문제 방지)
-        UIManager.Instance?.ApplyScreenForActiveScene();
+        //UIManager.Instance?.ApplyScreenForActiveScene();
         OnAfterSceneLoad?.Invoke();
 
         HideLoadingUI();
