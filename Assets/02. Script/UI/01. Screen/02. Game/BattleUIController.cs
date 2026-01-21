@@ -3,28 +3,34 @@ using UnityEngine.SceneManagement;
 using UnityEngine.UI;
 using TMPro;
 
+/*
+BattleUIController는전투UI게이트/입력/팝업상태를관리한다.
+-로그가busy면팝업을닫고Confirm키만받는다
+-로그가없고플레이어선택대기면커맨드팝업을자동오픈한다
+-Update에서문자열생성/로그출력금지(GC규칙),상태변화시점에서만로그출력
+*/
 public sealed class BattleUIController : MonoBehaviour
 {
     [Header("Screen Gate")]
-    [SerializeField] private GameObject gameScreenRoot; // UIRoot/ScreenRoot/Game Screen
+    [SerializeField] private GameObject gameScreenRoot;
 
     [Header("HUD")]
     [SerializeField] private BattleLogUI battleLogUI;
 
     [Header("Command Popup (4버튼 팝업 루트)")]
-    [SerializeField] private GameObject commandPopupRoot; // (Dim 포함 루트 추천)
+    [SerializeField] private GameObject commandPopupRoot;
     [SerializeField] private Button fightButton;
     [SerializeField] private Button ballButton;
     [SerializeField] private Button pokemonButton;
     [SerializeField] private Button runButton;
 
     [Header("Skill Popup")]
-    [SerializeField] private GameObject skillPopupRoot; // (Dim 포함 루트)
+    [SerializeField] private GameObject skillPopupRoot;
     [SerializeField] private Button[] skillButtons = new Button[4];
     [SerializeField] private TMP_Text[] skillLabels = new TMP_Text[4];
 
     [Header("Optional Input Owner")]
-    [SerializeField] private MonoBehaviour menuButtonController; // MenuButtonController 있으면 드래그
+    [SerializeField] private MonoBehaviour menuButtonController;
 
     [Header("Keys")]
     [SerializeField] private KeyCode confirmKey1 = KeyCode.Return;
@@ -35,6 +41,10 @@ public sealed class BattleUIController : MonoBehaviour
 
     private BattleManager battleManager;
     private TurnSystem turnSystem;
+
+    private bool lastGate;
+    private bool lastLogBusy;
+    private bool lastWaitingChoice;
 
     private void Awake()
     {
@@ -53,13 +63,17 @@ public sealed class BattleUIController : MonoBehaviour
         }
 
         CloseAllPopups();
+        CacheState(force: true);
+        LogTag("Awake");
     }
 
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
         TryRebindBattle();
-        ApplyGateAndMode();
+        CacheState(force: true);
+        ApplyState(force: true);
+        LogTag("OnEnable");
     }
 
     private void OnDisable()
@@ -69,47 +83,95 @@ public sealed class BattleUIController : MonoBehaviour
         battleManager = null;
         turnSystem = null;
         CloseAllPopups();
+        LogTag("OnDisable");
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         TryRebindBattle();
-        ApplyGateAndMode();
+        CacheState(force: true);
+        ApplyState(force: true);
+        LogTag("SceneLoaded");
     }
 
     private void Update()
     {
-        ApplyGateAndMode();
-        if (!IsGameScreenActive()) return;
-
+        bool gate = IsGameScreenActive();
         bool logBusy = battleLogUI != null && battleLogUI.IsBusy;
+        bool waitingChoice = turnSystem != null && turnSystem.IsWaitingForPlayerChoice;
+
+        bool changed = (gate != lastGate) || (logBusy != lastLogBusy) || (waitingChoice != lastWaitingChoice);
+        if (changed)
+        {
+            lastGate = gate;
+            lastLogBusy = logBusy;
+            lastWaitingChoice = waitingChoice;
+
+            ApplyState(force: false);
+        }
+
+        if (!gate) return;
 
         if (logBusy)
         {
-            // 로그 모드: Confirm만 받기
-            if (Input.GetKeyDown(confirmKey1) || Input.GetKeyDown(confirmKey2))
+            if (Input.GetKeyDown(confirmKey1) || Input.GetKeyDown(confirmKey2) || Input.GetKeyDown(KeyCode.Space))
+            {
                 battleLogUI.Confirm();
+                LogTag("ConfirmKey");
+            }
+
+            return;
+        }
+    }
+
+    private void CacheState(bool force)
+    {
+        if (!force) return;
+
+        lastGate = IsGameScreenActive();
+        lastLogBusy = battleLogUI != null && battleLogUI.IsBusy;
+        lastWaitingChoice = turnSystem != null && turnSystem.IsWaitingForPlayerChoice;
+    }
+
+    private void ApplyState(bool force)
+    {
+        if (!lastGate)
+        {
+            CloseAllPopups();
+            SetMenuInputEnabled(false);
+            LogTag("GateOff");
+            return;
+        }
+
+        if (lastLogBusy)
+        {
+            SetPopupVisible(commandPopupRoot, false);
+            SetPopupVisible(skillPopupRoot, false);
+            SetCommandButtonsInteractable(false);
+            SetMenuInputEnabled(false);
+            LogTag("LogBusy");
+            return;
+        }
+
+        SetMenuInputEnabled(true);
+
+        if (lastWaitingChoice)
+        {
+            SetCommandButtonsInteractable(true);
+
+            if (!IsPopupSelfActive(commandPopupRoot) && !IsPopupSelfActive(skillPopupRoot))
+            {
+                SetPopupVisible(commandPopupRoot, true);
+                LogTag("OpenCommandPopup");
+            }
 
             return;
         }
 
-        // 커맨드/스킬 선택 가능 여부
-        bool waitingChoice = turnSystem != null && turnSystem.IsWaitingForPlayerChoice;
-
-        // 내 턴이면 커맨드 팝업 자동 오픈
-        if (waitingChoice)
-        {
-            if (!IsPopupActive(commandPopupRoot) && !IsPopupActive(skillPopupRoot))
-                SetPopupVisible(commandPopupRoot, true);
-
-            SetCommandButtonsInteractable(true);
-        }
-        else
-        {
-            // 내 턴 아니면 팝업 닫기
-            SetPopupVisible(commandPopupRoot, false);
-            SetPopupVisible(skillPopupRoot, false);
-        }
+        SetPopupVisible(commandPopupRoot, false);
+        SetPopupVisible(skillPopupRoot, false);
+        SetCommandButtonsInteractable(false);
+        LogTag("NotMyTurn");
     }
 
     private void TryRebindBattle()
@@ -121,7 +183,7 @@ public sealed class BattleUIController : MonoBehaviour
         {
             turnSystem = null;
             CloseAllPopups();
-            if (debugLogs) Debug.LogWarning("[BattleUI] BattleManager not found.");
+            LogTag("RebindFail");
             return;
         }
 
@@ -131,32 +193,7 @@ public sealed class BattleUIController : MonoBehaviour
 
         BindLog();
         RefreshSkillLabels();
-
-        if (debugLogs) Debug.Log($"[BattleUI] Rebind OK: BM={battleManager.name}, TS={(turnSystem != null ? "OK" : "NULL")}");
-    }
-
-    private void ApplyGateAndMode()
-    {
-        if (!IsGameScreenActive())
-        {
-            CloseAllPopups();
-            SetMenuInputEnabled(false);
-            return;
-        }
-
-        bool logBusy = battleLogUI != null && battleLogUI.IsBusy;
-
-        // 로그가 뜨면 모든 팝업 닫고 입력 잠금
-        if (logBusy)
-        {
-            SetPopupVisible(commandPopupRoot, false);
-            SetPopupVisible(skillPopupRoot, false);
-            SetMenuInputEnabled(false);
-            return;
-        }
-
-        // 로그가 없으면 입력 가능(커맨드/스킬은 Update에서 결정)
-        SetMenuInputEnabled(true);
+        LogTag("RebindOK");
     }
 
     private bool IsGameScreenActive()
@@ -164,7 +201,6 @@ public sealed class BattleUIController : MonoBehaviour
         if (gameScreenRoot != null)
             return gameScreenRoot.activeInHierarchy;
 
-        // fallback
         return battleManager != null;
     }
 
@@ -195,24 +231,25 @@ public sealed class BattleUIController : MonoBehaviour
         RefreshSkillLabels();
         SetPopupVisible(commandPopupRoot, false);
         SetPopupVisible(skillPopupRoot, true);
+        LogTag("FightClicked");
     }
 
     private void OnClickBall()
     {
-        if (battleManager?.LogBuffer != null)
-            battleManager.LogBuffer.Push("아직 볼 기능은 준비 중!");
+        battleManager?.LogBuffer?.Push("아직 볼 기능은 준비 중!");
+        LogTag("BallClicked");
     }
 
     private void OnClickPokemon()
     {
-        if (battleManager?.LogBuffer != null)
-            battleManager.LogBuffer.Push("아직 포켓몬 교체 기능은 준비 중!");
+        battleManager?.LogBuffer?.Push("아직 포켓몬 교체 기능은 준비 중!");
+        LogTag("PokemonClicked");
     }
 
     private void OnClickRun()
     {
-        if (battleManager?.LogBuffer != null)
-            battleManager.LogBuffer.Push("도망 기능은 준비 중!");
+        battleManager?.LogBuffer?.Push("도망 기능은 준비 중!");
+        LogTag("RunClicked");
     }
 
     private void OnClickSkill(int slotIndex)
@@ -224,6 +261,7 @@ public sealed class BattleUIController : MonoBehaviour
 
         battleManager.SelectSkillSlot(slotIndex);
         SetPopupVisible(skillPopupRoot, false);
+        LogTag("SkillClicked");
     }
 
     private void RefreshSkillLabels()
@@ -253,26 +291,34 @@ public sealed class BattleUIController : MonoBehaviour
         SetCommandButtonsInteractable(false);
     }
 
-    private bool IsPopupActive(GameObject root)
+    private bool IsPopupSelfActive(GameObject root)
     {
-        return root != null && root.activeInHierarchy;
+        return root != null && root.activeSelf;
     }
 
     private void SetPopupVisible(GameObject root, bool visible)
     {
         if (root == null) return;
 
+        if (root.activeSelf == visible) return;
+
         root.SetActive(visible);
 
         if (visible)
             root.transform.SetAsLastSibling();
 
-        var cg = root.GetComponent<CanvasGroup>();
+        CanvasGroup cg = root.GetComponent<CanvasGroup>();
         if (cg != null)
         {
             cg.alpha = visible ? 1f : 0f;
             cg.interactable = visible;
             cg.blocksRaycasts = visible;
         }
+    }
+
+    private void LogTag(string tag)
+    {
+        if (!debugLogs) return;
+        Debug.Log("[BattleUI]" + tag);
     }
 }
