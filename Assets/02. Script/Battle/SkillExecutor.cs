@@ -22,7 +22,7 @@ public sealed class SkillExecutor : MonoBehaviour
             return;
         }
 
-        // 1) 기술 사용(1~2줄 세트 유지)
+        //1) 기술 사용(1~2줄 세트 유지)
         log.Push($"{attacker.DisplayName}의 {skill.SkillName}!\n");
 
         if (!Roll(skill.Accuracy))

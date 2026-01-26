@@ -2,17 +2,14 @@
 using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-// 전반적인 게임흐름을 관리하는 매니저입니다
 
-/***중요*** [UI 애니메이션 관련]
- 
+/*전반적인 게임흐름을 관리하는 매니저입니다
+[UI 애니메이션 관련]
  게임 일시정지시 timeScale이 0으로 설정하여 관리합니다
  게임이 정지되었을때 실행되는 UI의 애니메이션은 멈추면 안되기때문에
  해당 UI의 animator컴포넌트 inspector창에서 Update Mode를 [Normal] -> [Unscaled Time]으로 변경해주세요
  UI만 해당하는 사항이며 다른 오브젝트들은 따로 설정하실 필요 없습니다
-
 */
-
 public class GameManager : Singleton<GameManager>
 {
 

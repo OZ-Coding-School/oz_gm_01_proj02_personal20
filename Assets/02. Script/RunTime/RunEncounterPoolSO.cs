@@ -1,5 +1,4 @@
-//Assets/_Project/Scripts/Run/RunEncounterPoolSO.cs
-using System;
+﻿using System;
 using System.Collections.Generic;
 using UnityEngine;
 

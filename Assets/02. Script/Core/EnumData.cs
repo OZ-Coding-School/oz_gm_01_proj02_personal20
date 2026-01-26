@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /*
 UISceneCanvasKind는Core영역에서사용되는enum다.
@@ -35,6 +35,7 @@ public static class EnumData
         Game = 3,      //게임/배틀
         PartyList = 4, //파티리스트
         Pokedex = 5,   //도감
+        ShopReward = 6       //상점,보상
     }
 
     //씬 종류

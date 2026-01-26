@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /*
 BattleTypes는Battle영역에서사용되는enum/상수집합이다.

@@ -1,5 +1,4 @@
-//Assets/_Project/Scripts/Run/RunEncounterGenerator.cs
-using System;
+﻿using System;
 using UnityEngine;
 
 /*
@@ -64,9 +63,7 @@ public static class RunEncounterGenerator
     }
 }
 
-/*
-RunState는런플로우상태다.
-*/
+//런 진행 상태
 public enum RunState
 {
     None = 0,

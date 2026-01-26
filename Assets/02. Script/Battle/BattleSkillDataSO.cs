@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /*
 BattleSkillDataSO는에디터에서생성되는ScriptableObject데이터다.

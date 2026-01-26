@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /*
 ScreenRegistry는ScreenRoot아래UIScreen들을자동으로UIManager에등록한다.

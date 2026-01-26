@@ -1,5 +1,4 @@
-﻿// File: Assets/02. Script/Boot/BootFlow.cs
-using System.Collections;
+﻿using System.Collections;
 using UnityEngine;
 
 public sealed class BootFlow : MonoBehaviour
@@ -25,8 +24,8 @@ public sealed class BootFlow : MonoBehaviour
     {
         float start = Time.realtimeSinceStartup;
 
-        // (옵션) 부트에서 로딩 패널을 먼저 보여주고 싶으면 여기서 호출
-        // SceneController.Instance?.ShowLoadingOnly("로딩중..."); // 이런 메서드가 있으면
+        //(옵션) 부트에서 로딩 패널을 먼저 보여주고 싶으면 여기서 호출
+        //SceneController.Instance?.ShowLoadingOnly("로딩중..."); // 이런 메서드가 있으면
 
         while (!IsBootReady())
         {
@@ -45,7 +44,7 @@ public sealed class BootFlow : MonoBehaviour
             yield return new WaitForSecondsRealtime(remain);
         }
 
-        // 씬 전환 (SceneController 우선, 없으면 SceneLoader fallback)
+        //씬 전환 (SceneController 우선, 없으면 SceneLoader fallback)
         if (SceneController.Instance != null)
         {
             SceneController.Instance.LoadScene(nextScene);

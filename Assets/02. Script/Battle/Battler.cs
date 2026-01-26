@@ -278,6 +278,7 @@ public sealed class Battler
 
     private void RaiseHp()
     {
+        Debug.Log($"[HP] {displayName} {hp}/{maxHp}");
         OnHpChanged?.Invoke(hp, maxHp);
     }
 
