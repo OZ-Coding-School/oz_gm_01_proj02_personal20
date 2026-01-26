@@ -38,11 +38,11 @@ public sealed class TurnSystem : MonoBehaviour
         waitingForPlayerChoice = false;
         chosenPlayerSlot = -1;
 
-        // 0) 전투 시작 연출 (2줄 세트)
+        //0) 전투 시작 연출 (2줄 세트)
         log.Push(BattleTexts.WildAppeared(enemy.DisplayName));
         log.Push(BattleTexts.GoPlayer(player.DisplayName));
 
-        // 프롬프트(고정)
+        //프롬프트(고정)
         log.Push(BattleTexts.PromptWhatWillDo(player.DisplayName));
 
         battleRoutine = StartCoroutine(BattleLoop());
@@ -63,7 +63,7 @@ public sealed class TurnSystem : MonoBehaviour
     {
         while (true)
         {
-            // 매 턴 시작: 프롬프트 갱신(고정)
+            //매 턴 시작: 프롬프트 갱신(고정)
             log.Push(BattleTexts.PromptWhatWillDo(player.DisplayName));
 
             waitingForPlayerChoice = true;
@@ -71,11 +71,11 @@ public sealed class TurnSystem : MonoBehaviour
 
             yield return new WaitUntil(() => chosenPlayerSlot >= 0);
 
-            // 1) 싸운다 → 스킬 선택 후 라운드 실행(여기서부터 기존 전투 로직 유지)
+            //1) 싸운다 → 스킬 선택 후 라운드 실행(여기서부터 기존 전투 로직 유지)
             var playerSkill = player.GetSkill(chosenPlayerSlot);
 
-            // 예시: 선공/후공 판정 후 각각 스킬 실행 전에 문구 Push
-            // (실제 데미지/효과 문구는 SkillExecutor에서 Push하거나, 여기서 추가로 Push하면 됨)
+            //예시: 선공/후공 판정 후 각각 스킬 실행 전에 문구 Push
+            //(실제 데미지/효과 문구는 SkillExecutor에서 Push하거나, 여기서 추가로 Push하면 됨)
             log.Push(BattleTexts.UseSkill(player.DisplayName, playerSkill.SkillName));
             executor.Execute(player, enemy, playerSkill, log);
 
@@ -87,7 +87,7 @@ public sealed class TurnSystem : MonoBehaviour
                 yield break;
             }
 
-            // 적 턴 예시(기존 AI 선택으로 교체)
+            //적 턴 예시(기존 AI 선택으로 교체)
             var enemySkill = enemy.GetSkill(0);
             log.Push(BattleTexts.UseSkill(enemy.DisplayName, enemySkill.SkillName));
             executor.Execute(enemy, player, enemySkill, log);

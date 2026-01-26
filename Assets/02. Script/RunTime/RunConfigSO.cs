@@ -1,5 +1,4 @@
-//Assets/_Project/Scripts/Run/RunConfigSO.cs
-using UnityEngine;
+﻿using UnityEngine;
 
 /*
 RunConfigSO는런난이도/스테이지/조우풀설정을보관한다.

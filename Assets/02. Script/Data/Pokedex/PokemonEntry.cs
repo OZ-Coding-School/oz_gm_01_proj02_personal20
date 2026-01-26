@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using UnityEngine;
 
 /*
@@ -47,7 +47,7 @@ public class PokemonEntry
     public int MegaVariantIndex => GetMegaVariantIndex(evolutionCode);//-101->1,-102->2
     public int FormChangeVariantIndex => GetFormChangeVariantIndex(evolutionCode);//-3->1,-4->2,-5->3
 
-    public PokemonEntry(int no,string name,string type1,string type2,string abilities,int hp,int atk,int def,int spAtk,int spDef,int speed,int value,int evolutionCode)
+    public PokemonEntry(int no, string name, string type1, string type2, string abilities, int hp, int atk, int def, int spAtk, int spDef, int speed, int value, int evolutionCode)
     {
         this.no = Mathf.Max(0, no);//키는음수방지
         this.name = name;
@@ -69,37 +69,37 @@ public class PokemonEntry
     //코드해석
     private static SpecialEvolutionKind GetSpecialEvolutionKind(int v)
     {
-        if(v >= 0)
+        if (v >= 0)
         {
             return SpecialEvolutionKind.None;
         }
 
-        if(v <= -100)
+        if (v <= -100)
         {
             return SpecialEvolutionKind.MegaEvolution;
         }
 
-        if(v == -1)
+        if (v == -1)
         {
             return SpecialEvolutionKind.MegaEvolution;
         }
 
-        if(v == -2)
+        if (v == -2)
         {
             return SpecialEvolutionKind.Gigantamax;
         }
 
-        if(v == -3)
+        if (v == -3)
         {
             return SpecialEvolutionKind.FormChange1;
         }
 
-        if(v == -4)
+        if (v == -4)
         {
             return SpecialEvolutionKind.FormChange2;
         }
 
-        if(v == -5)
+        if (v == -5)
         {
             return SpecialEvolutionKind.FormChange3;
         }
@@ -110,7 +110,7 @@ public class PokemonEntry
     //메가세부폼인덱스
     private static int GetMegaVariantIndex(int v)
     {
-        if(v <= -100)
+        if (v <= -100)
         {
             return (-v) - 100;
         }
@@ -121,17 +121,17 @@ public class PokemonEntry
     //폼체인지인덱스
     private static int GetFormChangeVariantIndex(int v)
     {
-        if(v == -3)
+        if (v == -3)
         {
             return 1;
         }
 
-        if(v == -4)
+        if (v == -4)
         {
             return 2;
         }
 
-        if(v == -5)
+        if (v == -5)
         {
             return 3;
         }

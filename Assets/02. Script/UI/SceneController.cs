@@ -3,9 +3,9 @@ using System.Collections;
 using System.Reflection;
 using UnityEngine;
 
-// Handles loading panel visibility (no progress bar).
-// - Shows "로딩중..." text while waiting.
-// - Delegates actual scene loading to SceneLoader.
+//Handles loading panel visibility (no progress bar).
+//- Shows "로딩중..." text while waiting.
+//- Delegates actual scene loading to SceneLoader.
 public class SceneController : MonoBehaviour
 {
     public static SceneController Instance { get; private set; }
@@ -44,15 +44,15 @@ public class SceneController : MonoBehaviour
 
         Instance = this;
 
-        // why: SceneController가 UIRoot 자식이어도 안전하게 루트 전체를 유지
+        //why: SceneController가 UIRoot 자식이어도 안전하게 루트 전체를 유지
         DontDestroyOnLoad(transform.root.gameObject);
     }
 
-    // ===== 버튼에서 바로 호출할 API =====
+    //===== 버튼에서 바로 호출할 API =====
     public void LoadLobbyScene() => LoadScene(EnumData.sceneType.LobbyScene);
     public void LoadGameScene() => LoadScene(EnumData.sceneType.GameScene);
 
-    // 버튼에서 이 함수만 호출하면 됨
+    //버튼에서 이 함수만 호출하면 됨
     public void LoadScene(EnumData.sceneType targetScene)
     {
         if (isLoading) return;
@@ -93,7 +93,7 @@ public class SceneController : MonoBehaviour
 
         while (!asyncOp.isDone)
         {
-            // progress는 0~0.9까지만 올라감
+            //progress는 0~0.9까지만 올라감
             if (asyncOp.progress >= 0.9f)
             {
                 float elapsed = Time.realtimeSinceStartup - shownAt;
@@ -106,7 +106,7 @@ public class SceneController : MonoBehaviour
             yield return null;
         }
 
-        // 씬 전환 완료: 현재 씬에 맞는 UIScreen 적용(부트 화면 고정 문제 방지)
+        //씬 전환 완료: 현재 씬에 맞는 UIScreen 적용(부트 화면 고정 문제 방지)
         //UIManager.Instance?.ApplyScreenForActiveScene();
         OnAfterSceneLoad?.Invoke();
 
@@ -165,7 +165,7 @@ public class SceneController : MonoBehaviour
     {
         if (loadingLabel == null) return;
 
-        // TMP_Text / Text 모두 public string text {get;set;} 를 가짐
+        //TMP_Text / Text 모두 public string text {get;set;} 를 가짐
         PropertyInfo prop = loadingLabel.GetType().GetProperty("text", BindingFlags.Instance | BindingFlags.Public);
         if (prop != null && prop.CanWrite && prop.PropertyType == typeof(string))
         {

@@ -1,114 +1,184 @@
-﻿using System;
+﻿using System.Collections;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /*
-RewardResolver는보상선택을적용하고RunManager로다음전투를진행시키는컴포넌트다.
--UI는SelectReward/ConfirmSelected만호출한다.
--RunManager상태가InShopOrReward일때만동작한다.
+RewardResolver는 전투종료 후 정산로그를 표시하고
+정산이 끝나면 RunManager에게 결과만 전달한다.
+※ 화면 전환(Game <-> ShopReward)은 UIManager가 RunState를 보고 처리한다.
 */
 public sealed class RewardResolver : MonoBehaviour
 {
-    [Serializable]
-    private struct RewardOption
-    {
-        [SerializeField] private RewardType type;
-        [Min(0)]
-        [SerializeField] private int amount;
+    [Header("Refs")]
+    [SerializeField] private BattleLogUI battleLogUI;
 
-        public RewardType Type => type;
-        public int Amount => amount;
-    }
-
-    private enum RewardType
-    {
-        None = 0,
-        Gold = 1
-        //Heal=2, Item=3, SkillPP=4... 확장
-    }
-
-    [Header("Options (MVP)")]
-    [SerializeField] private RewardOption[] options = Array.Empty<RewardOption>();
+    [Header("Rewards")]
+    [SerializeField, Min(1)] private int expGainTest = 12;
 
     [Header("Debug")]
     [SerializeField] private bool debugLogs;
 
-    private int selectedIndex = -1;
+    private BattleManager battleManager;
+    private RunManager runManager;
 
-    //OnEnable은RunManager이벤트를구독한다
+    private Coroutine routine;
+    private Coroutine bindRoutine;
+    private bool bindRequested;
+
+    private void Awake()
+    {
+        if (battleLogUI == null) battleLogUI = FindObjectOfType<BattleLogUI>(true);
+    }
+
     private void OnEnable()
     {
-        if (RunManager.Instance != null)
-        {
-            RunManager.Instance.OnStateChanged += OnRunStateChanged;
-        }
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+        SceneManager.sceneLoaded += OnSceneLoaded;
+
+        RequestBindNextFrame();
     }
 
-    //OnDisable은구독을해제한다
     private void OnDisable()
     {
-        if (RunManager.Instance != null)
+        SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        UnbindBattle();
+
+        if (bindRoutine != null)
         {
-            RunManager.Instance.OnStateChanged -= OnRunStateChanged;
+            StopCoroutine(bindRoutine);
+            bindRoutine = null;
+        }
+        bindRequested = false;
+
+        if (routine != null)
+        {
+            StopCoroutine(routine);
+            routine = null;
         }
     }
 
-    //SelectReward는UI에서보상슬롯을선택할때호출한다
-    public void SelectReward(int index)
+    private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
-        if (!IsRewardState()) return;
-        if (options == null || options.Length == 0) return;
-        if (index < 0 || index >= options.Length) return;
-
-        selectedIndex = index;
-        LogTag("SelectReward");
+        RequestBindNextFrame();
     }
 
-    //ConfirmSelected는UI에서확정버튼을눌렀을때호출한다
-    public void ConfirmSelected()
+    private void RequestBindNextFrame()
     {
-        if (!IsRewardState()) return;
-        if (options == null || options.Length == 0) return;
-        if (selectedIndex < 0 || selectedIndex >= options.Length) return;
+        if (bindRequested) return;
+        bindRequested = true;
 
-        ApplyReward(options[selectedIndex]);
-        selectedIndex = -1;
-
-        RunManager.Instance.CommitRewardAndContinue();
-        LogTag("ConfirmSelected");
-    }
-
-    //OnRunStateChanged는상태진입시선택을리셋한다
-    private void OnRunStateChanged(RunState state)
-    {
-        if (state == RunState.InShopOrReward)
+        if (bindRoutine != null)
         {
-            selectedIndex = -1;
-            LogTag("EnterRewardState");
+            StopCoroutine(bindRoutine);
+            bindRoutine = null;
+        }
+
+        bindRoutine = StartCoroutine(CoBindNextFrame());
+    }
+
+    private IEnumerator CoBindNextFrame()
+    {
+        yield return null;
+
+        bindRequested = false;
+
+        TryRebindBattle();
+        CacheRunManager();
+    }
+
+    private void CacheRunManager()
+    {
+        runManager = RunManager.Instance;
+        if (runManager == null) LogTag("RunManagerMissing");
+    }
+
+    private void TryRebindBattle()
+    {
+        UnbindBattle();
+
+        battleManager = FindObjectOfType<BattleManager>(true);
+        if (battleManager == null)
+        {
+            LogTag("RebindFail");
+            return;
+        }
+
+        battleManager.BattleEnded -= OnBattleEnded;
+        battleManager.BattleEnded += OnBattleEnded;
+
+        LogTag("RebindOK");
+    }
+
+    private void UnbindBattle()
+    {
+        if (battleManager != null)
+        {
+            battleManager.BattleEnded -= OnBattleEnded;
+            battleManager = null;
+        }
+
+        if (routine != null)
+        {
+            StopCoroutine(routine);
+            routine = null;
         }
     }
 
-    //ApplyReward는선택보상을적용한다(MVP:골드만)
-    private void ApplyReward(RewardOption opt)
+    private void OnBattleEnded(bool playerWon, Battler player, Battler enemy, BattleLogBuffer log)
     {
-        if (RunManager.Instance == null) return;
+        if (routine != null) return;
+        routine = StartCoroutine(CoResolve(playerWon, player, enemy, log));
+    }
 
-        switch (opt.Type)
+    private IEnumerator CoResolve(bool playerWon, Battler player, Battler enemy, BattleLogBuffer log)
+    {
+        LogTag("ResolveStart");
+
+        if (playerWon)
         {
-            case RewardType.Gold:
-                RunManager.Instance.AddGold(opt.Amount);
-                break;
+            log.Push(enemy.DisplayName + "이/가 쓰러졌다!");
+            yield return WaitLogIdle();
+
+            player.GainExp(expGainTest);
+            log.Push(player.DisplayName + "은/는\n" + expGainTest + "의 경험치를 얻었다!");
+            yield return WaitLogIdle();
+
+            NotifyRunBattleEnded(true);
+        }
+        else
+        {
+            log.Push(player.DisplayName + "은/는 쓰러졌다!");
+            yield return WaitLogIdle();
+
+            NotifyRunBattleEnded(false);
         }
 
-        LogTag("ApplyReward");
+        routine = null;
+        LogTag("ResolveEnd");
     }
 
-    //IsRewardState는현재보상상태인지판정한다
-    private bool IsRewardState()
+    private IEnumerator WaitLogIdle()
     {
-        return RunManager.Instance != null && RunManager.Instance.State == RunState.InShopOrReward;
+        if (battleLogUI == null) yield break;
+        yield return new WaitUntil(() => !battleLogUI.IsBusy);
     }
 
-    //LogTag는추적용로그다(Update에서호출금지)
+    private void NotifyRunBattleEnded(bool playerWon)
+    {
+        if (runManager == null) runManager = RunManager.Instance;
+        if (runManager == null)
+        {
+            LogTag("RunManagerMissing");
+            return;
+        }
+
+        // 여기서 상태가 InShopOrReward로 바뀌면
+        // UIManager가 자동으로 ScreenId.ShopReward를 켠다.
+        runManager.ReportBattleEnded(playerWon);
+        LogTag("ReportBattleEnded");
+    }
+
     private void LogTag(string tag)
     {
         if (!debugLogs) return;

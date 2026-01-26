@@ -1,23 +1,19 @@
 ﻿using System.Collections;
 using System.Collections.Generic;
 using UnityEngine;
-using UnityEngine.UI;
 using TMPro;
 
 /*
 BattleLogUI는전투로그출력과다음진행(Confirm)대기를담당한다.
 -문자열규칙:[PROMPT]는고정프롬프트(▼없음),그외는블로킹메시지(▼+Confirm필요)
 -Confirm은대기중이면즉시소모,대기전이면pending으로저장후대기진입시자동소모
+-▼는별도UI없이로그텍스트끝에자동으로붙인다(waitingForConfirm일때만)
 -디버그로그는상태변화지점에서만출력한다(Update에서GC유발로그금지)
 */
 public sealed class BattleLogUI : MonoBehaviour
 {
     [Header("Single Text")]
     [SerializeField] private TMP_Text logText;
-
-    [Header("Continue UI")]
-    [SerializeField] private GameObject continueIcon;
-    [SerializeField] private Button continueButton;
 
     [Header("Timing")]
     [Min(0f)]
@@ -45,15 +41,15 @@ public sealed class BattleLogUI : MonoBehaviour
             if (logText == null) logText = GetComponentInChildren<TMP_Text>(true);
         }
 
-        if (continueButton != null) continueButton.interactable = false;
+        waitingForConfirm = false;
+        pendingAdvance = false;
 
-        SetContinueVisible(false);
         Render(string.Empty);
 
         LogTag("Awake");
     }
 
-    // ✅ 핵심: Screen이 Hide됐다가 Show될 때, 남은 큐를 다시 소비 시작
+    //OnEnable은Hide됐다가Show될때남은큐를다시소비시작한다
     private void OnEnable()
     {
         if (routine == null && queue.Count > 0)
@@ -62,20 +58,21 @@ public sealed class BattleLogUI : MonoBehaviour
             LogTag("ResumeConsume");
         }
 
-        // 현재 상태에 맞춰 ▼ 표시 복구
-        SetContinueVisible(waitingForConfirm);
+        //현재상태에맞춰▼표시복구
+        Render(GetCurrentDisplayText());
 
         LogTag("OnEnable");
     }
 
-    // ✅ Disable될 때 큐를 날리면 안 됨(Show/Hide 사이클에서 멈춤 발생)
+    //OnDisable은큐/상태는유지하고코루틴참조만끊는다
     private void OnDisable()
     {
-        // 코루틴은 Disable 시 자동 중지됨 → 참조만 끊고, 큐/상태는 유지
+        //코루틴은Disable시자동중지됨→참조만끊고큐/상태는유지
         routine = null;
         LogTag("OnDisable");
     }
 
+    //Push는로그라인을큐에추가한다
     public void Push(string raw)
     {
         if (string.IsNullOrWhiteSpace(raw)) return;
@@ -103,13 +100,17 @@ public sealed class BattleLogUI : MonoBehaviour
         }
     }
 
+    //Confirm은대기중이면즉시소모하고아니면pending으로저장한다
     public void Confirm()
     {
         if (waitingForConfirm)
         {
             waitingForConfirm = false;
             pendingAdvance = false;
-            SetContinueVisible(false);
+
+            //대기해제되면▼가사라지도록즉시갱신
+            Render(GetCurrentDisplayText());
+
             LogTag("ConfirmConsumedNow");
             return;
         }
@@ -118,6 +119,7 @@ public sealed class BattleLogUI : MonoBehaviour
         LogTag("ConfirmBuffered");
     }
 
+    //ClearPrompt는프롬프트를해제한다
     public void ClearPrompt()
     {
         promptActive = false;
@@ -134,22 +136,22 @@ public sealed class BattleLogUI : MonoBehaviour
         {
             string msg = queue.Dequeue();
 
+            waitingForConfirm = false;
             Render(msg);
-            SetContinueVisible(false);
             LogTag("ShowMsg");
 
             if (minIntervalSeconds > 0f)
                 yield return new WaitForSecondsRealtime(minIntervalSeconds);
 
             waitingForConfirm = true;
-            SetContinueVisible(true);
+            Render(msg);
             LogTag("WaitEnter");
 
             if (pendingAdvance)
             {
                 pendingAdvance = false;
                 waitingForConfirm = false;
-                SetContinueVisible(false);
+                Render(msg);
                 LogTag("PendingConsumed");
                 yield return null;
                 continue;
@@ -161,6 +163,8 @@ public sealed class BattleLogUI : MonoBehaviour
         }
 
         routine = null;
+        waitingForConfirm = false;
+        pendingAdvance = false;
 
         if (promptActive)
         {
@@ -176,16 +180,31 @@ public sealed class BattleLogUI : MonoBehaviour
         LogTag("ConsumeEnd");
     }
 
+    private string GetCurrentDisplayText()
+    {
+        if (logText == null) return string.Empty;
+
+        //현재화면에표시중인텍스트에서마지막▼만제거해원본을복구한다
+        string t = logText.text ?? string.Empty;
+        if (t.EndsWith("\n▼")) t = t.Substring(0, t.Length - 2);
+        return t;
+    }
+
+    //Render는현재대기상태면텍스트끝에▼를붙인다
     private void Render(string text)
     {
         if (logText == null) return;
-        logText.text = text ?? string.Empty;
-    }
 
-    private void SetContinueVisible(bool visible)
-    {
-        if (continueIcon != null) continueIcon.SetActive(visible);
-        if (continueButton != null) continueButton.interactable = false;
+        string baseText = text ?? string.Empty;
+
+        if (waitingForConfirm)
+        {
+            logText.text = baseText + "\n▼";
+        }
+        else
+        {
+            logText.text = baseText;
+        }
     }
 
     private void LogTag(string tag)

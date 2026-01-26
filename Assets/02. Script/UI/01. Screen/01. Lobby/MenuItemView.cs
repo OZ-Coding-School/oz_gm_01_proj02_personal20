@@ -1,9 +1,10 @@
+﻿using UnityEngine;
+using UnityEngine.UI;
+
 /*
 MenuItemView는메뉴항목의선택상태표현을담당한다.
 -선택시스케일/알파를조정해강조한다.
 */
-using UnityEngine;
-using UnityEngine.UI;
 
 public sealed class MenuItemView : MonoBehaviour
 {

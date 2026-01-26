@@ -251,7 +251,7 @@ public class PokemonCsvImporterWindow : EditorWindow
 
         string t = s.Trim();
 
-        //UTF-8 BOM(﻿) / 제로폭 문자 제거
+        //UTF-8 BOM() / 제로폭 문자 제거
         t = t.Trim('\uFEFF', '\u200B', '\u200C', '\u200D');
 
         return t.Trim();

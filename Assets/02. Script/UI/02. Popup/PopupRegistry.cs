@@ -1,4 +1,4 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 //PopupPanel 아래에 붙여두면
 //하위에 있는 모든 UIPopup을 자동으로 UIManager에 등록

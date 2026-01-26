@@ -1,9 +1,10 @@
-﻿using UnityEngine;
+﻿using System.Collections;
+using UnityEngine;
 using UnityEngine.SceneManagement;
 
 /*
-BattleHUDController는씬의BattleManager를찾아Player/Enemy HUD를바인딩한다.
--UIRoot에두고BattleScene에서만gate로활성되게쓰는것을권장한다.
+BattleHUDController는 BattleManager가 "준비될 때까지" 기다렸다가
+Player/Enemy HUD를 안정적으로 바인딩한다.
 */
 public sealed class BattleHUDController : MonoBehaviour
 {
@@ -18,16 +19,24 @@ public sealed class BattleHUDController : MonoBehaviour
     [SerializeField] private bool debugLogs;
 
     private BattleManager cached;
+    private Coroutine bindRoutine;
 
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
-        TryBind();
+        StartBindRoutine();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+
+        if (bindRoutine != null)
+        {
+            StopCoroutine(bindRoutine);
+            bindRoutine = null;
+        }
+
         UnbindAll();
         cached = null;
     }
@@ -35,17 +44,7 @@ public sealed class BattleHUDController : MonoBehaviour
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         cached = null;
-        TryBind();
-    }
-
-    private void Update()
-    {
-        if (!IsGateOn()) return;
-
-        if (cached == null || cached.Player == null || cached.Enemy == null)
-        {
-            TryBind();
-        }
+        StartBindRoutine();
     }
 
     private bool IsGateOn()
@@ -54,17 +53,38 @@ public sealed class BattleHUDController : MonoBehaviour
         return true;
     }
 
-    private void TryBind()
+    private void StartBindRoutine()
     {
-        if (!IsGateOn()) return;
+        if (bindRoutine != null)
+        {
+            StopCoroutine(bindRoutine);
+            bindRoutine = null;
+        }
+        bindRoutine = StartCoroutine(CoBindWhenReady());
+    }
 
-        cached = FindObjectOfType<BattleManager>(true);
-        if (cached == null) return;
+    private IEnumerator CoBindWhenReady()
+    {
+        // 게이트가 꺼져 있으면 켜질 때까지 대기
+        while (!IsGateOn())
+            yield return null;
 
-        if (cached.Player != null && playerHUD != null) playerHUD.Bind(cached.Player);
-        if (cached.Enemy != null && enemyHUD != null) enemyHUD.Bind(cached.Enemy);
+        // BattleManager 찾기
+        while (cached == null)
+        {
+            cached = FindObjectOfType<BattleManager>(true);
+            if (cached == null) yield return null;
+        }
 
-        LogTag("TryBind");
+        // Player/Enemy 생성될 때까지 대기 (BattleManager.Start 이후)
+        while (cached.Player == null || cached.Enemy == null)
+            yield return null;
+
+        if (playerHUD != null) playerHUD.Bind(cached.Player);
+        if (enemyHUD != null) enemyHUD.Bind(cached.Enemy);
+
+        LogTag("BindOK");
+        bindRoutine = null;
     }
 
     private void UnbindAll()

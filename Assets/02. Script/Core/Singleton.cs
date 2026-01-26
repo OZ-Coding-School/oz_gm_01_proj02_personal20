@@ -1,9 +1,7 @@
 ﻿using UnityEngine;
 
-/// <summary>
-/// Unity MonoBehaviour singleton base.
-/// - If the instance should survive scene loads, the instance GameObject must be a root object.
-/// </summary>
+// Unity MonoBehaviour singleton base.
+// - If the instance should survive scene loads, the instance GameObject must be a root object.
 public class Singleton<T> : MonoBehaviour where T : Singleton<T>
 {
     [SerializeField] protected bool _IsDestroyOnLoad = true;
@@ -28,7 +26,7 @@ public class Singleton<T> : MonoBehaviour where T : Singleton<T>
 
         if (_IsDestroyOnLoad)
         {
-            // why: DontDestroyOnLoad only works for root GameObjects
+            //why: DontDestroyOnLoad only works for root GameObjects
             if (transform.parent != null)
             {
                 transform.SetParent(null, true);

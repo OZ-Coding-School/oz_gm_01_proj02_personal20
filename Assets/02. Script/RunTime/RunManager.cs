@@ -1,5 +1,4 @@
-//Assets/_Project/Scripts/Run/RunManager.cs
-using System;
+﻿using System;
 using UnityEngine;
 
 /*
@@ -24,6 +23,8 @@ public sealed class RunManager : MonoBehaviour
 
     private RunEncounter currentEncounter;
 
+    private bool rewardLocked;//보상선택후락(즉시다음전투로넘어가므로안전가드)
+
     public static RunManager Instance { get; private set; }
 
     public RunState State => state;
@@ -38,20 +39,21 @@ public sealed class RunManager : MonoBehaviour
     //Awake는싱글톤과DontDestroy를설정한다
     private void Awake()
     {
+        // 싱글톤 처리(이미 있으면 파괴)
         if (Instance != null && Instance != this)
         {
             Destroy(gameObject);
             return;
         }
-
         Instance = this;
-        DontDestroyOnLoad(gameObject);
 
-        if (config == null)
+        // 루트가 아니면 루트로 떼기
+        if (transform.parent != null)
         {
-            config = Resources.Load<RunConfigSO>("RunConfig");
+            transform.SetParent(null);
         }
 
+        DontDestroyOnLoad(gameObject);
         LogTag("Awake");
     }
 
@@ -68,7 +70,8 @@ public sealed class RunManager : MonoBehaviour
         stageIndex = 1;
         gold = config.StartGold;
 
-        //StartNewRun은파티/영속데이터를여기서초기화해야하지만MVP는생략한다
+        rewardLocked = false;
+
         PrepareNextBattle();
         LogTag("StartNewRun");
     }
@@ -82,6 +85,8 @@ public sealed class RunManager : MonoBehaviour
             return;
         }
 
+        rewardLocked = false;
+
         currentEncounter = RunEncounterGenerator.Generate(config, biomeIndex, stageIndex);
         SetState(RunState.InBattle);
 
@@ -92,6 +97,7 @@ public sealed class RunManager : MonoBehaviour
     //ReportBattleEnded는전투결과를받아다음상태로전환한다
     public void ReportBattleEnded(bool playerWon)
     {
+        Debug.Log("[Run]ReportBattleEnded playerWon=" + playerWon);
         if (state != RunState.InBattle)
         {
             Debug.LogWarning("RunManager:ReportBattleEnded ignored(not InBattle)");
@@ -121,30 +127,60 @@ public sealed class RunManager : MonoBehaviour
         LogTag("ToShopOrReward");
     }
 
-    //CommitRewardAndContinue는보상선택을확정하고다음전투로간다
-    public void CommitRewardAndContinue()
+    //TryBuyShopItem은상점아이템구매를시도한다(여러번가능)
+    public bool TryBuyShopItem(int price, Action applyEffect)
     {
         if (state != RunState.InShopOrReward)
         {
-            Debug.LogWarning("RunManager:CommitReward ignored");
-            return;
+            Debug.LogWarning("RunManager:TryBuyShopItem ignored(not InShopOrReward)");
+            return false;
         }
 
-        PrepareNextBattle();
-        LogTag("CommitRewardAndContinue");
+        if (rewardLocked)
+        {
+            Debug.LogWarning("RunManager:TryBuyShopItem ignored(rewardLocked)");
+            return false;
+        }
+
+        if (!TrySpendGold(price))
+        {
+            Debug.Log("RunManager:NoGold");
+            return false;
+        }
+
+        if (applyEffect != null)
+        {
+            applyEffect.Invoke();
+        }
+
+        LogTag("BuyShopItem");
+        return true;
     }
 
-    //CommitShopAndContinue는상점구매를확정하고다음전투로간다
-    public void CommitShopAndContinue()
+    //PickRewardAndContinue는보상선택을확정하고즉시다음전투로간다
+    public void PickRewardAndContinue(Action applyEffect)
     {
         if (state != RunState.InShopOrReward)
         {
-            Debug.LogWarning("RunManager:CommitShop ignored");
+            Debug.LogWarning("RunManager:PickReward ignored");
             return;
         }
 
+        if (rewardLocked)
+        {
+            Debug.LogWarning("RunManager:PickReward ignored(already picked)");
+            return;
+        }
+
+        rewardLocked = true;
+
+        if (applyEffect != null)
+        {
+            applyEffect.Invoke();
+        }
+
         PrepareNextBattle();
-        LogTag("CommitShopAndContinue");
+        LogTag("PickRewardAndContinue");
     }
 
     //AddGold는골드를증가시킨다

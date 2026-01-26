@@ -1,9 +1,10 @@
-﻿using UnityEngine;
+﻿using System;
+using UnityEngine;
 
 /*
 BattleManager는Battle씬에서전투를부팅하고외부(UI/입력)와턴시스템을연결한다.
 -외부에서는SelectSkillSlot을호출해플레이어기술선택을전달한다.
--턴시스템/스킬실행기/도감서비스참조를Awake에서캐싱한다.
+-전투종료시BattleEnded이벤트로정산/상점흐름에게알린다.
 */
 public sealed class BattleManager : MonoBehaviour
 {
@@ -32,22 +33,21 @@ public sealed class BattleManager : MonoBehaviour
     private Battler enemy;
     private BattleLogBuffer log;
 
+    public event Action<bool, Battler, Battler, BattleLogBuffer> BattleEnded;
+
     public BattleLogBuffer LogBuffer => log;
     public TurnSystem TurnSystem => turnSystem;
     public Battler Player => player;
     public Battler Enemy => enemy;
 
-    public BattleSkillDataSO GetPlayerSkill(int slotIndex)
-    {
-        return player?.GetSkill(slotIndex);
-    }
+    public BattleSkillDataSO GetPlayerSkill(int slotIndex) => player?.GetSkill(slotIndex);
+
     public string GetPlayerSkillName(int slotIndex)
     {
         var s = GetPlayerSkill(slotIndex);
         return s != null ? s.SkillName : "-";
     }
 
-    //Awake는컴포넌트참조를캐싱한다.
     private void Awake()
     {
         if (turnSystem == null) turnSystem = GetComponent<TurnSystem>();
@@ -56,20 +56,13 @@ public sealed class BattleManager : MonoBehaviour
         if (pokedexService == null)
         {
             var gm = GameManager.Instance;
-            if (gm != null && gm.Pokedex != null)
-            {
-                pokedexService = gm.Pokedex;
-            }
-            else
-            {
-                pokedexService = FindObjectOfType<PokedexService>(true);
-            }
+            if (gm != null && gm.Pokedex != null) pokedexService = gm.Pokedex;
+            else pokedexService = FindObjectOfType<PokedexService>(true);
         }
 
         log = new BattleLogBuffer(32);
     }
 
-    //Start는전투를초기화하고턴루프를시작한다.
     private void Start()
     {
         if (turnSystem == null || skillExecutor == null)
@@ -86,7 +79,6 @@ public sealed class BattleManager : MonoBehaviour
         turnSystem.BeginBattle(player, enemy, skillExecutor, log, OnBattleEnded);
     }
 
-    //Update는테스트입력만처리한다.
     private void Update()
     {
         if (turnSystem == null) return;
@@ -98,27 +90,19 @@ public sealed class BattleManager : MonoBehaviour
         if (Input.GetKeyDown(KeyCode.Alpha4)) SelectSkillSlot(3);
     }
 
-    //SelectSkillSlot은플레이어기술선택을턴시스템으로전달한다.
     public void SelectSkillSlot(int slotIndex)
     {
         if (turnSystem == null) return;
         turnSystem.SetPlayerChoice(slotIndex);
     }
 
-    //EnsurePokedexInitialized는도감서비스초기화를보장한다.
     private void EnsurePokedexInitialized()
     {
         if (pokedexService == null) return;
         if (pokedexService.IsInitialized) return;
 
-        // 1) PokedexService에 이미 DB가 연결돼 있으면 그걸 사용
         PokemonDatabaseSO db = pokedexService.Database;
-
-        // 2) 없으면 GameManager가 쓰는 것처럼 Resources에서 로드 시도
-        if (db == null)
-        {
-            db = Resources.Load<PokemonDatabaseSO>("PokemonDatabase");
-        }
+        if (db == null) db = Resources.Load<PokemonDatabaseSO>("PokemonDatabase");
 
         if (db == null)
         {
@@ -132,8 +116,6 @@ public sealed class BattleManager : MonoBehaviour
         pokedexService.Initialize(db);
     }
 
-
-    //BuildBattler는도감번호로Battler를생성한다.
     private Battler BuildBattler(int pokedexNo, int level, BattleSkillDataSO s0, BattleSkillDataSO s1, BattleSkillDataSO s2, BattleSkillDataSO s3)
     {
         var b = new Battler();
@@ -154,10 +136,10 @@ public sealed class BattleManager : MonoBehaviour
         return b;
     }
 
-    //OnBattleEnded는전투종료콜백이다.
+    //TurnSystem이호출하는콜백(외부는접근하지않음)
     private void OnBattleEnded(bool playerWon)
     {
-        //OnBattleEnded는후속(보상/씬전환)연결지점이다.
         Debug.Log("Battle End. playerWon=" + playerWon);
+        BattleEnded?.Invoke(playerWon, player, enemy, log);
     }
 }

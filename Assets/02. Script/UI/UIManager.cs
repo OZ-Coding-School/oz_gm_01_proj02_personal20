@@ -31,6 +31,8 @@ public class UIManager : MonoBehaviour
     private readonly Dictionary<PopupId, UIPopup> popupTable = new();
     private readonly Dictionary<ScreenId, UIScreen> screenTable = new();
 
+    private RunManager runManager;
+    private Coroutine bindRunRoutine;
     private void Awake()
     {
         if (Instance != null && Instance != this)
@@ -41,27 +43,43 @@ public class UIManager : MonoBehaviour
 
         Instance = this;
 
-        // why: UI 전체 루트를 씬 전환에도 유지
+        //why: UI 전체 루트를 씬 전환에도 유지
         DontDestroyOnLoad(transform.root.gameObject);
 
         RegisterAllScreens();
         ApplyScreenForActiveScene();
+
+        // RunManager는 나중에 뜰 수 있으니 코루틴으로 바인딩 시도
+        StartBindRunManager();
     }
 
     private void OnEnable()
     {
         SceneManager.sceneLoaded += OnSceneLoaded;
+        StartBindRunManager();
     }
 
     private void OnDisable()
     {
         SceneManager.sceneLoaded -= OnSceneLoaded;
+        UnbindRunManager();
     }
 
     private void OnSceneLoaded(Scene scene, LoadSceneMode mode)
     {
         RegisterAllScreens();
+
+        // 씬 로드 직후는 UI 등록/활성 순서가 섞일 수 있어서 1프레임 뒤 적용
+        StartCoroutine(CoApplyAfterOneFrame());
+
+        // 씬이 바뀌면 RunManager 참조가 살아있을 수도/없을 수도 있으니 재바인딩 시도
+        StartBindRunManager();
+    }
+    private IEnumerator CoApplyAfterOneFrame()
+    {
+        yield return null;
         ApplyScreenForActiveScene();
+        ApplyScreenForRunStateIfNeeded();
     }
 
     private void RegisterAllScreens()
@@ -75,7 +93,7 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // Screen
+    //Screen
     public void RegisterScreen(UIScreen screen)
     {
         if (screen == null) return;
@@ -99,27 +117,72 @@ public class UIManager : MonoBehaviour
     public void ApplyScreenForActiveScene()
     {
         CleanDeadScreens();
+        HideAllScreens();
 
-        ScreenId target = GetScreenIdForActiveScene();
-        if (target == ScreenId.None)
+        ScreenId id = GetScreenIdForActiveScene();
+        if (id == ScreenId.None)
         {
-            Debug.LogWarning($"UIManager: ScreenId.None (ActiveScene={SceneManager.GetActiveScene().name})");
+            Debug.LogWarning($"[UIManager] No ScreenId for scene {SceneManager.GetActiveScene().name}");
             return;
         }
 
-        if (!screenTable.TryGetValue(target, out UIScreen screen) || screen == null)
+        ShowScreenById(id, clearStack: true);
+    }
+
+    private void ApplyScreenForRunStateIfNeeded()
+    {
+        // 03.GameScene에서만 RunState로 (Game <-> ShopReward) 스위칭
+        if (!IsGameScene()) return;
+        if (runManager == null) return;
+
+        if (runManager.State == RunState.InShopOrReward)
         {
-            Debug.LogWarning($"//등록되지않은스크린:{target}");
+            ShowScreenById(ScreenId.ShopReward, clearStack: true);
+        }
+        else
+        {
+            // 전투/전환/게임오버 등은 기본적으로 게임 HUD 스크린
+            ShowScreenById(ScreenId.Game, clearStack: true);
+        }
+    }
+
+    private bool IsGameScene()
+    {
+        string active = NormalizeSceneName(SceneManager.GetActiveScene().name);
+        string game = NormalizeSceneName(GetSceneName(sceneType.GameScene));
+        if (!string.IsNullOrEmpty(game)) return active == game;
+        return active.Contains("gamescene");
+    }
+
+    public void ShowScreenById(ScreenId id, bool clearStack = true)
+    {
+        if (!screenTable.TryGetValue(id, out UIScreen screen) || screen == null)
+        {
+            Debug.LogWarning($"[UIManager] Screen not registered: {id}");
             return;
         }
 
-        ShowScreen(screen, clearStack: true);
+        ShowScreen(screen, clearStack);
+    }
+
+    private void HideAllScreens()
+    {
+        foreach (var kv in screenTable)
+        {
+            var s = kv.Value;
+            if (s == null) continue;
+
+            s.Hide();
+            s.gameObject.SetActive(false); // Hide가 active를 안 끄는 구조 대비 안전장치
+        }
+
+        // 스택도 같이 비워서 "이전 씬 화면"이 스택에 남지 않게
+        screenStack.Clear();
     }
 
     private static string NormalizeSceneName(string s)
     {
         if (string.IsNullOrWhiteSpace(s)) return "";
-        // 공백/점/언더스코어 제거 후 소문자
         return s.Replace(" ", "")
                 .Replace(".", "")
                 .Replace("_", "")
@@ -138,7 +201,7 @@ public class UIManager : MonoBehaviour
         if (!string.IsNullOrEmpty(lobby) && active == lobby) return ScreenId.Lobby;
         if (!string.IsNullOrEmpty(game) && active == game) return ScreenId.Game;
 
-        // fallback
+        //fallback
         if (active.Contains("bootscene")) return ScreenId.Boot;
         if (active.Contains("lobbyscene")) return ScreenId.Lobby;
         if (active.Contains("gamescene")) return ScreenId.Game;
@@ -169,13 +232,13 @@ public class UIManager : MonoBehaviour
     {
         if (screen == null) return;
 
-        // ✅ 이미 같은 스크린이 최상단이면 아무것도 하지 않음(중요)
+        // 이미 같은 스크린이 최상단이면 아무것도 하지 않음
         if (screenStack.Count > 0)
         {
             UIScreen top = screenStack.Peek();
             if (top == screen)
             {
-                if (!screen.gameObject.activeSelf) screen.Show(); // 혹시 꺼져있으면만 켬
+                if (!screen.gameObject.activeSelf) screen.Show();
                 return;
             }
         }
@@ -206,7 +269,48 @@ public class UIManager : MonoBehaviour
         screen.Show();
     }
 
-    // Popup(Register)
+    // RunManager Bind
+
+    private void StartBindRunManager()
+    {
+        if (bindRunRoutine != null) StopCoroutine(bindRunRoutine);
+        bindRunRoutine = StartCoroutine(CoBindRunManagerNextFrame());
+    }
+
+    private IEnumerator CoBindRunManagerNextFrame()
+    {
+        // 1프레임 뒤에 Instance가 준비되는 경우 대비
+        yield return null;
+
+        var rm = RunManager.Instance;
+        if (rm == null) yield break;
+
+        if (runManager == rm) yield break;
+
+        UnbindRunManager();
+
+        runManager = rm;
+        runManager.OnStateChanged += OnRunStateChanged;
+
+        // 현재 상태를 즉시 반영
+        ApplyScreenForRunStateIfNeeded();
+    }
+
+    private void UnbindRunManager()
+    {
+        if (runManager != null)
+        {
+            runManager.OnStateChanged -= OnRunStateChanged;
+            runManager = null;
+        }
+    }
+
+    private void OnRunStateChanged(RunState state)
+    {
+        ApplyScreenForRunStateIfNeeded();
+    }
+
+    // Popup / System / Toast
     public void RegisterPopup(UIPopup popup)
     {
         if (popup == null) return;
@@ -221,7 +325,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // Popup(Open)
     public void ShowPopup(PopupId id)
     {
         if (!popupTable.TryGetValue(id, out UIPopup popup))
@@ -237,7 +340,6 @@ public class UIManager : MonoBehaviour
         popup.Open();
     }
 
-    // Popup(Close)
     public void CloseTopPopup()
     {
         if (popupStack.Count == 0) return;
@@ -255,7 +357,6 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    // System
     public void AttachSystemUI(MonoBehaviour systemUI)
     {
         if (systemUI == null) return;
@@ -264,7 +365,6 @@ public class UIManager : MonoBehaviour
         systemUI.transform.SetParent(systemRoot, false);
     }
 
-    // Toast
     public void ShowToast(MonoBehaviour toastUI)
     {
         if (toastUI == null) return;
@@ -274,7 +374,6 @@ public class UIManager : MonoBehaviour
         toastUI.gameObject.SetActive(true);
     }
 
-    // 코루틴 러너
     public Coroutine Run(IEnumerator routine)
     {
         if (routine == null) return null;
@@ -289,14 +388,12 @@ public class UIManager : MonoBehaviour
 
     public void Back()
     {
-        //팝업이 있으면 팝업부터 한단계 뒤로
         if (popupStack.Count > 0)
         {
             CloseTopPopup();
             return;
         }
 
-        //스크린 스택이 2개 이상이면 이전 스크린으로
         if (screenStack.Count > 1)
         {
             UIScreen current = screenStack.Pop();
@@ -306,9 +403,5 @@ public class UIManager : MonoBehaviour
             prev?.Show();
             return;
         }
-
-        //여기까지 오면 더이상 뒤로갈게 없음
-        //원하면 여기서 종료확인팝업/로비로 이동 같은 처리 가능
-        //Debug.Log("//Back: no more history");
     }
 }
